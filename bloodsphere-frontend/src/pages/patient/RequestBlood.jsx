@@ -1,0 +1,236 @@
+import { useState } from "react";
+import api from "../../api/axios";
+
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
+
+export default function RequestBlood() {
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    bloodGroup: "",
+    units: 1,
+  });
+
+  // Mobile OTP — mocked
+  const [mobileOtpSent, setMobileOtpSent] = useState(false);
+  const [mobileOtp, setMobileOtp] = useState("");
+  const [mobileVerified, setMobileVerified] = useState(false);
+
+  // Email OTP — real, hits backend
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtp, setEmailOtp] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
+
+  // --- Mobile OTP (mocked) ---
+  const sendMobileOtp = () => {
+    if (!form.phone) return;
+    setMobileOtpSent(true);
+  };
+  const verifyMobileOtp = () => {
+    if (mobileOtp === "1234") setMobileVerified(true);
+  };
+
+  // --- Email OTP (real, via backend) ---
+  const sendEmailOtp = async () => {
+    if (!form.email) return;
+    setEmailError("");
+    setEmailLoading(true);
+    try {
+      await api.post("/otp/send-email", { email: form.email });
+      setEmailOtpSent(true);
+    } catch (err) {
+      setEmailError(err.response?.data?.message || "Failed to send OTP");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const verifyEmailOtp = async () => {
+    setEmailError("");
+    setEmailLoading(true);
+    try {
+      await api.post("/otp/verify-email", { email: form.email, otp: emailOtp });
+      setEmailVerified(true);
+    } catch (err) {
+      setEmailError(err.response?.data?.message || "Incorrect OTP");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const bothVerified = mobileVerified && emailVerified;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // TODO: await api.post("/requests", form) once backend request route is ready
+    setSubmitted(true);
+  };
+
+  if (submitted) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center px-6 text-center">
+        <div>
+          <h2 className="text-2xl font-bold text-green-700 mb-2">Request submitted</h2>
+          <p className="text-gray-600">
+            We're matching your request against nearby blood banks and available donors.
+            You'll be contacted at {form.phone} or {form.email} shortly.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[80vh] flex items-center justify-center px-6 py-10 bg-gradient-to-br from-red-100 via-red-50 to-rose-100">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-md rounded-lg p-8 w-full max-w-md border border-gray-100"
+      >
+        <h2 className="text-2xl font-bold text-gray-800 mb-1">Request Blood</h2>
+        <p className="text-sm text-gray-500 mb-6">No account needed. Verify your mobile and email to submit.</p>
+
+        <div className="space-y-3">
+          <input
+            name="name"
+            placeholder="Patient's name"
+            required
+            value={form.name}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+          />
+
+          {/* Mobile OTP block */}
+          <div className="flex gap-2">
+            <input
+              name="phone"
+              placeholder="Mobile number"
+              required
+              disabled={mobileOtpSent}
+              value={form.phone}
+              onChange={handleChange}
+              className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:bg-gray-100"
+            />
+            {!mobileOtpSent && (
+              <button type="button" onClick={sendMobileOtp} className="bg-gray-800 text-white px-4 rounded-md text-sm whitespace-nowrap">
+                Send OTP
+              </button>
+            )}
+          </div>
+          {mobileOtpSent && !mobileVerified && (
+            <div className="flex gap-2">
+              <input
+                placeholder="Enter mobile OTP"
+                value={mobileOtp}
+                onChange={(e) => setMobileOtp(e.target.value)}
+                className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+              />
+              <button type="button" onClick={verifyMobileOtp} className="bg-green-600 text-white px-4 rounded-md text-sm">
+                Verify
+              </button>
+            </div>
+          )}
+          {mobileVerified && <p className="text-sm text-green-600">✓ Mobile verified</p>}
+
+          {/* Email OTP block */}
+          <div className="flex gap-2">
+            <input
+              type="email"
+              name="email"
+              placeholder="Email address"
+              required
+              disabled={emailOtpSent}
+              value={form.email}
+              onChange={handleChange}
+              className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:bg-gray-100"
+            />
+            {!emailOtpSent && (
+              <button
+                type="button"
+                onClick={sendEmailOtp}
+                disabled={emailLoading}
+                className="bg-gray-800 text-white px-4 rounded-md text-sm whitespace-nowrap disabled:opacity-60"
+              >
+                {emailLoading ? "Sending..." : "Send OTP"}
+              </button>
+            )}
+          </div>
+          {emailOtpSent && !emailVerified && (
+            <div className="flex gap-2">
+              <input
+                placeholder="Enter email OTP"
+                value={emailOtp}
+                onChange={(e) => setEmailOtp(e.target.value)}
+                className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+              />
+              <button
+                type="button"
+                onClick={verifyEmailOtp}
+                disabled={emailLoading}
+                className="bg-green-600 text-white px-4 rounded-md text-sm disabled:opacity-60"
+              >
+                {emailLoading ? "..." : "Verify"}
+              </button>
+            </div>
+          )}
+          {emailVerified && <p className="text-sm text-green-600">✓ Email verified</p>}
+          {emailError && <p className="text-sm text-red-600">{emailError}</p>}
+
+          <input
+            name="address"
+            placeholder="Address"
+            required
+            value={form.address}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+          />
+
+          <select
+            name="bloodGroup"
+            required
+            value={form.bloodGroup}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 text-gray-600"
+          >
+            <option value="">Type of blood needed</option>
+            {BLOOD_GROUPS.map((bg) => (
+              <option key={bg} value={bg}>{bg}</option>
+            ))}
+          </select>
+
+          <div>
+            <input
+              type="number"
+              name="units"
+              min="1"
+              placeholder="Units needed"
+              value={form.units}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">1 unit ≈ 450ml</p>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={!bothVerified}
+          className="w-full bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+        >
+          Submit Request
+        </button>
+        {!bothVerified && (
+          <p className="text-xs text-gray-400 text-center mt-2">Verify both mobile and email to submit</p>
+        )}
+      </form>
+    </div>
+  );
+}
