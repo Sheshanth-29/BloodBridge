@@ -20,8 +20,9 @@ export default function HospitalDashboard() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [actingId, setActingId] = useState(null);
   const [error, setError] = useState("");
-  const [, forceTick] = useState(0); // used to refresh the countdown text periodically
+  const [, forceTick] = useState(0);
 
   const fetchRequests = async () => {
     try {
@@ -36,8 +37,8 @@ export default function HospitalDashboard() {
 
   useEffect(() => {
     fetchRequests();
-    const poll = setInterval(fetchRequests, 15000); // check for blood bank updates every 15s
-    const tick = setInterval(() => forceTick((n) => n + 1), 30000); // refresh countdown display
+    const poll = setInterval(fetchRequests, 15000);
+    const tick = setInterval(() => forceTick((n) => n + 1), 30000);
     return () => {
       clearInterval(poll);
       clearInterval(tick);
@@ -58,6 +59,18 @@ export default function HospitalDashboard() {
       setError(err.response?.data?.message || "Failed to submit request");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const markArrived = async (id) => {
+    setActingId(id);
+    try {
+      await api.patch(`/requests/${id}`, { status: "Delivered" });
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActingId(null);
     }
   };
 
@@ -134,7 +147,16 @@ export default function HospitalDashboard() {
                 <div className="text-right">
                   <div className={`font-medium ${statusColor(r.status)}`}>{r.status}</div>
                   {r.status === "Approved" && (
-                    <div className="text-xs text-gray-400 mt-0.5">{getEta(r.dispatchedAt)}</div>
+                    <>
+                      <div className="text-xs text-gray-400 mt-0.5">{getEta(r.dispatchedAt)}</div>
+                      <button
+                        onClick={() => markArrived(r.id)}
+                        disabled={actingId === r.id}
+                        className="mt-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-xs font-medium hover:bg-blue-200 disabled:opacity-50"
+                      >
+                        {actingId === r.id ? "Updating..." : "Mark as Arrived"}
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

@@ -181,8 +181,12 @@ export default function BloodBankDashboard() {
                     </button>
                   </div>
                 ) : (
-                  <span className={`text-xs font-medium ${r.status === "Approved" ? "text-green-600" : "text-gray-400"}`}>
-                    {r.status}
+                <span className={`text-xs font-medium ${
+                  r.status === "Approved" ? "text-green-600" :
+                  r.status === "Delivered" ? "text-blue-600" :
+                  "text-gray-400"
+                  }`}>
+                  {r.status === "Delivered" ? "✅ Delivered successfully" : r.status}
                   </span>
                 )}
               </div>

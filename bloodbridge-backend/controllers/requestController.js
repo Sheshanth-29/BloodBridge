@@ -1,7 +1,6 @@
 const Request = require("../models/Request");
 const User = require("../models/User");
 
-// Creates a request — works for both a logged-in hospital AND an anonymous patient
 exports.createRequest = async (req, res) => {
   try {
     const { bloodGroup, units, name, phone, email } = req.body;
@@ -30,7 +29,6 @@ exports.createRequest = async (req, res) => {
   }
 };
 
-// Blood bank view — sees every request, newest first
 exports.getAllRequests = async (req, res) => {
   try {
     const requests = await Request.findAll({ order: [["createdAt", "DESC"]] });
@@ -41,7 +39,6 @@ exports.getAllRequests = async (req, res) => {
   }
 };
 
-// Hospital view — only their own requests
 exports.getMyRequests = async (req, res) => {
   try {
     const requests = await Request.findAll({
@@ -55,16 +52,22 @@ exports.getMyRequests = async (req, res) => {
   }
 };
 
-// Blood bank approves or declines a request
+// Handles both directions:
+// - Blood bank sets "Approved" or "Declined"
+// - Hospital sets "Delivered" once blood physically arrives (only allowed from "Approved")
 exports.updateRequestStatus = async (req, res) => {
   try {
-    const { status } = req.body; // "Approved" or "Declined"
+    const { status } = req.body;
     const request = await Request.findByPk(req.params.id);
     if (!request) return res.status(404).json({ message: "Request not found" });
 
+    if (status === "Delivered" && request.status !== "Approved") {
+      return res.status(400).json({ message: "Can only mark as delivered after approval" });
+    }
+
     request.status = status;
     if (status === "Approved") {
-      request.dispatchedAt = new Date(); // marks the start of the mock 20-min delivery window
+      request.dispatchedAt = new Date();
     }
     await request.save();
 
