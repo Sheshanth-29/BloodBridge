@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
@@ -13,11 +14,6 @@ export default function RequestBlood() {
     units: 1,
   });
 
-  // Mobile OTP — mocked
-  const [mobileOtpSent, setMobileOtpSent] = useState(false);
-  const [mobileOtp, setMobileOtp] = useState("");
-  const [mobileVerified, setMobileVerified] = useState(false);
-
   // Email OTP — real, hits backend
   const [emailOtpSent, setEmailOtpSent] = useState(false);
   const [emailOtp, setEmailOtp] = useState("");
@@ -25,21 +21,11 @@ export default function RequestBlood() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
 
-  const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  // --- Mobile OTP (mocked) ---
-  const sendMobileOtp = () => {
-    if (!form.phone) return;
-    setMobileOtpSent(true);
-  };
-  const verifyMobileOtp = () => {
-    if (mobileOtp === "1234") setMobileVerified(true);
-  };
-
-  // --- Email OTP (real, via backend) ---
   const sendEmailOtp = async () => {
     if (!form.email) return;
     setEmailError("");
@@ -67,27 +53,19 @@ export default function RequestBlood() {
     }
   };
 
-  const bothVerified = mobileVerified && emailVerified;
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: await api.post("/requests", form) once backend request route is ready
-    setSubmitted(true);
+    try {
+      const res = await api.post("/requests", form);
+      // Navigate to live tracking page, passing the request so it can show immediately
+      navigate(`/track/${res.data.id}`, { state: { request: res.data } });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to submit request. Please try again.");
+    }
   };
 
-  if (submitted) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center px-6 text-center">
-        <div>
-          <h2 className="text-2xl font-bold text-green-700 mb-2">Request submitted</h2>
-          <p className="text-gray-600">
-            We're matching your request against nearby blood banks and available donors.
-            You'll be contacted at {form.phone} or {form.email} shortly.
-          </p>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-6 py-10 bg-gradient-to-br from-red-100 via-red-50 to-rose-100">
@@ -96,7 +74,7 @@ export default function RequestBlood() {
         className="bg-white shadow-md rounded-lg p-8 w-full max-w-md border border-gray-100"
       >
         <h2 className="text-2xl font-bold text-gray-800 mb-1">Request Blood</h2>
-        <p className="text-sm text-gray-500 mb-6">No account needed. Verify your mobile and email to submit.</p>
+        <p className="text-sm text-gray-500 mb-6">No account needed. Verify your email to submit.</p>
 
         <div className="space-y-3">
           <input
@@ -108,37 +86,14 @@ export default function RequestBlood() {
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
           />
 
-          {/* Mobile OTP block */}
-          <div className="flex gap-2">
-            <input
-              name="phone"
-              placeholder="Mobile number"
-              required
-              disabled={mobileOtpSent}
-              value={form.phone}
-              onChange={handleChange}
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:bg-gray-100"
-            />
-            {!mobileOtpSent && (
-              <button type="button" onClick={sendMobileOtp} className="bg-gray-800 text-white px-4 rounded-md text-sm whitespace-nowrap">
-                Send OTP
-              </button>
-            )}
-          </div>
-          {mobileOtpSent && !mobileVerified && (
-            <div className="flex gap-2">
-              <input
-                placeholder="Enter mobile OTP"
-                value={mobileOtp}
-                onChange={(e) => setMobileOtp(e.target.value)}
-                className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
-              />
-              <button type="button" onClick={verifyMobileOtp} className="bg-green-600 text-white px-4 rounded-md text-sm">
-                Verify
-              </button>
-            </div>
-          )}
-          {mobileVerified && <p className="text-sm text-green-600">✓ Mobile verified</p>}
+          <input
+            name="phone"
+            placeholder="Mobile number"
+            required
+            value={form.phone}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+          />
 
           {/* Email OTP block */}
           <div className="flex gap-2">
@@ -222,13 +177,13 @@ export default function RequestBlood() {
 
         <button
           type="submit"
-          disabled={!bothVerified}
+          disabled={!emailVerified}
           className="w-full bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
         >
           Submit Request
         </button>
-        {!bothVerified && (
-          <p className="text-xs text-gray-400 text-center mt-2">Verify both mobile and email to submit</p>
+        {!emailVerified && (
+          <p className="text-xs text-gray-400 text-center mt-2">Verify your email to submit</p>
         )}
       </form>
     </div>

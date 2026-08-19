@@ -8,6 +8,7 @@ import Landing from "./pages/shared/Landing";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 import RequestBlood from "./pages/patient/RequestBlood";
+import TrackRequest from "./pages/patient/TrackRequest";
 
 import DonorDashboard from "./pages/donor/DonorDashboard";
 import HospitalDashboard from "./pages/hospital/HospitalDashboard";
@@ -28,6 +29,7 @@ export default function App() {
 
               {/* Open access — no login required */}
               <Route path="/request-blood" element={<RequestBlood />} />
+              <Route path="/track/:id" element={<TrackRequest />} />
 
               <Route
                 path="/donor/dashboard"

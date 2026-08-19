@@ -1,10 +1,20 @@
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { Droplet, ArrowLeft, Home, LogOut, Bell, Building2, Heart, User } from "lucide-react";
+
+const roleIcon = (role) => {
+  if (role === "donor") return <Droplet size={14} className="inline mr-1" />;
+  if (role === "hospital") return <Building2 size={14} className="inline mr-1" />;
+  if (role === "bloodbank") return <Heart size={14} className="inline mr-1" />;
+  return <User size={14} className="inline mr-1" />;
+};
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [scrolled, setScrolled] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -13,58 +23,74 @@ export default function Navbar() {
 
   const isHome = location.pathname === "/";
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <nav className="bg-red-600 text-white px-6 py-4 flex justify-between items-center shadow-md">
+    <nav
+      className={`sticky top-0 z-50 text-white px-6 py-3 flex justify-between items-center transition-all duration-300 ${
+        scrolled
+          ? "bg-gradient-to-r from-red-800 to-rose-700 shadow-lg backdrop-blur-md"
+          : "bg-gradient-to-r from-red-700 to-rose-600 shadow-md"
+      }`}
+    >
+      {/* Left side */}
       <div className="flex items-center gap-1">
         {!isHome && (
           <>
             <button
               onClick={() => navigate(-1)}
               title="Go back"
-              className="w-9 h-9 flex items-center justify-center rounded-md hover:bg-red-700 transition"
+              className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/15 transition-colors"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5" />
-                <path d="M12 19l-7-7 7-7" />
-              </svg>
+              <ArrowLeft size={18} />
             </button>
             <Link
               to="/"
               title="Go home"
-              className="w-9 h-9 flex items-center justify-center rounded-md hover:bg-red-700 transition"
+              className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/15 transition-colors"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9.5L12 3l9 6.5" />
-                <path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" />
-              </svg>
+              <Home size={18} />
             </Link>
           </>
         )}
-        <Link to="/" className="text-xl font-bold tracking-tight ml-2">
-          BloodBridge
+        <Link to="/" className="flex items-center gap-2 ml-2 group">
+          <span className="bg-white/20 rounded-lg p-1.5 group-hover:bg-white/30 transition-colors">
+            <Droplet size={16} className="text-white fill-white" />
+          </span>
+          <span className="text-xl font-bold tracking-tight">BloodBridge</span>
         </Link>
       </div>
 
-      <div className="flex items-center gap-4">
+      {/* Right side */}
+      <div className="flex items-center gap-3">
         {!user && (
-          <>
-            <Link to="/login" className="hover:underline">Login</Link>
-            <Link to="/signup" className="bg-white text-red-600 px-4 py-1.5 rounded-md font-medium hover:bg-red-50">
-              Sign Up
-            </Link>
-          </>
+          <Link
+            to="/signup"
+            className="bg-white text-red-700 px-4 py-1.5 rounded-lg font-semibold text-sm hover:bg-red-50 hover:scale-105 transition-all duration-200 shadow-sm"
+          >
+            Get Started
+          </Link>
         )}
 
         {user && (
           <>
-            <span className="text-sm opacity-90">
-              {user.name} · <span className="capitalize">{user.role}</span>
-            </span>
+            <div className="hidden sm:flex items-center gap-2 bg-white/15 rounded-lg px-3 py-1.5 text-sm">
+              {roleIcon(user.role)}
+              <span className="font-medium">{user.name}</span>
+              <span className="text-red-200">·</span>
+              <span className="capitalize text-red-100 text-xs">{user.role}</span>
+            </div>
             <button
               onClick={handleLogout}
-              className="bg-white text-red-600 px-4 py-1.5 rounded-md font-medium hover:bg-red-50"
+              title="Logout"
+              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/25 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
             >
-              Logout
+              <LogOut size={15} />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </>
         )}

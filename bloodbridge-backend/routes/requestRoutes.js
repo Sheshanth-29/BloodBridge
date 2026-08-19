@@ -5,6 +5,7 @@ const {
   createRequest,
   getAllRequests,
   getMyRequests,
+  getRequestById,
   updateRequestStatus,
 } = require("../controllers/requestController");
 
@@ -16,6 +17,9 @@ router.get("/", requireAuth, getAllRequests);
 
 // Hospital dashboard — view only their own requests
 router.get("/mine", requireAuth, getMyRequests);
+
+// Public — patient tracking page polls this
+router.get("/:id", getRequestById);
 
 // Blood bank approves/declines
 router.patch("/:id", requireAuth, updateRequestStatus);

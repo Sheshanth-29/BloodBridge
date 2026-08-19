@@ -7,7 +7,7 @@ const Request = sequelize.define("Request", {
     allowNull: false,
   },
   requesterId: {
-    type: DataTypes.INTEGER, // links to a Users row, only set for hospital requests
+    type: DataTypes.INTEGER,
     allowNull: true,
   },
   requesterName: {
@@ -19,6 +19,10 @@ const Request = sequelize.define("Request", {
     allowNull: true,
   },
   contactEmail: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  address: {
     type: DataTypes.STRING,
     allowNull: true,
   },
@@ -37,7 +41,7 @@ const Request = sequelize.define("Request", {
     defaultValue: "Pending",
   },
   dispatchedAt: {
-    type: DataTypes.DATE, // set the moment blood bank approves — used for the mock 20-min ETA
+    type: DataTypes.DATE,
     allowNull: true,
   },
 });
