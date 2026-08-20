@@ -39,4 +39,9 @@ sequelize
   })
   .catch((err) => {
     console.error("❌ Database connection failed:", err.message);
+    console.error("   Code:", err.original?.code);
+    console.error("   Host:", process.env.DB_HOST);
+    console.error("   Port:", parseInt(process.env.DB_PORT || process.env.PORT, 10));
+    console.error("   User:", process.env.DB_USER);
+    console.error("   DB:  ", process.env.DB_NAME);
   });

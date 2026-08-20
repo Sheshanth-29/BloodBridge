@@ -24,7 +24,7 @@ export default function App() {
           <div className="flex-1">
             <Routes>
               <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
+
               <Route path="/signup" element={<Signup />} />
 
               {/* Open access — no login required */}

@@ -28,7 +28,6 @@ exports.updateStatus = async (req, res) => {
         });
       }
     }
-    donor.symbol = '1';
     donor.status = status;
     await donor.save();
     res.json(donor);
