@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import heroImage from "../../assets/background.jpg";
+import handsDonateImage from "../../assets/hands_donate.png";
 import { ArrowRight, UserPlus, Search, Heart, Droplet, ShieldCheck, Clock } from "lucide-react";
 
 // ── Animated stat counter ──────────────────────────────────────────────────
@@ -174,7 +175,18 @@ export default function Landing() {
       </div>
 
       {/* ── How it works ── */}
-      <section className="bg-gradient-to-b from-white to-red-50 px-6 py-16">
+      <section
+        className="relative px-6 py-16 overflow-hidden"
+        style={{
+          backgroundImage: `url(${handsDonateImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center 40%",
+          backgroundAttachment: "fixed",
+        }}
+      >
+        {/* Soft white overlay so cards stay crisp */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/92 via-red-50/88 to-white/95 pointer-events-none" />
+        <div className="relative z-10">
         <FadeSection className="max-w-4xl mx-auto text-center mb-12">
           <span className="text-xs font-semibold uppercase tracking-widest text-red-500 mb-3 block">Process</span>
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">How it works</h2>
@@ -221,6 +233,7 @@ export default function Landing() {
               </div>
             </FadeSection>
           ))}
+        </div>
         </div>
       </section>
 
