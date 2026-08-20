@@ -88,12 +88,27 @@ export default function RequestBlood() {
 
           <input
             name="phone"
-            placeholder="Mobile number"
+            placeholder="Mobile number (10 digits)"
             required
+            inputMode="numeric"
+            maxLength={10}
+            pattern="[0-9]{10}"
+            title="Enter a valid 10-digit mobile number"
             value={form.phone}
-            onChange={handleChange}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setForm({ ...form, phone: digits });
+            }}
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
           />
+          {form.phone.length > 0 && form.phone.length < 10 && (
+            <p className="text-xs text-red-400 -mt-1 pl-1">
+              {10 - form.phone.length} more digit{10 - form.phone.length !== 1 ? "s" : ""} needed
+            </p>
+          )}
+          {form.phone.length === 10 && (
+            <p className="text-xs text-green-500 -mt-1 pl-1">✓ Valid mobile number</p>
+          )}
 
           {/* Email OTP block */}
           <div className="flex gap-2">

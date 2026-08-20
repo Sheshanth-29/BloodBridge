@@ -311,11 +311,26 @@ export default function Signup() {
 
             <IconInput
               icon={Phone}
-              placeholder="Contact number"
+              placeholder="Contact number (10 digits)"
               required
+              inputMode="numeric"
+              maxLength={10}
+              pattern="[0-9]{10}"
+              title="Enter a valid 10-digit mobile number"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setForm({ ...form, phone: digits });
+              }}
             />
+            {form.phone.length > 0 && form.phone.length < 10 && (
+              <p className="text-xs text-red-400 -mt-1 pl-1">
+                {10 - form.phone.length} more digit{10 - form.phone.length !== 1 ? "s" : ""} needed
+              </p>
+            )}
+            {form.phone.length === 10 && (
+              <p className="text-xs text-green-500 -mt-1 pl-1">✓ Valid mobile number</p>
+            )}
 
             {role === "donor" && (
               <StyledSelect
