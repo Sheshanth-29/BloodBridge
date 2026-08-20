@@ -63,6 +63,19 @@
   50%      { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
 }
 
+/* PIP card slide-up entry */
+@keyframes slideUpPip {
+  from { opacity: 0; transform: translateY(40px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* Bouncing arrow on the expand tab */
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+
 /* ── Utility classes ── */
 
 .animate-fade-in-up {
@@ -147,4 +160,37 @@
 .heartbeat-line path {
   animation: drawLine 2.5s ease-in-out infinite;
   stroke-dasharray: 600;
+}
+
+/* ── Leaflet zoom control — dark theme for DeliveryTracker ── */
+.leaflet-bottom.leaflet-left {
+  bottom: 90px;  /* sit above the bottom panel */
+  left: 12px;
+}
+.leaflet-control-zoom {
+  border: none !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+}
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  background: rgba(10,0,0,0.82) !important;
+  backdrop-filter: blur(10px);
+  color: #fff !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(192,57,43,0.3) !important;
+  font-size: 18px !important;
+  line-height: 30px !important;
+  width: 36px !important;
+  height: 36px !important;
+  transition: background 0.2s !important;
+}
+.leaflet-control-zoom-out {
+  border-bottom: none !important;
+}
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+  background: rgba(192,57,43,0.6) !important;
+  color: #fff !important;
 }

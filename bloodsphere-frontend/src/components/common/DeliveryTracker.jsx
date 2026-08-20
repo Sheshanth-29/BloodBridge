@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
+import { useNavigate } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Polyline, useMap, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// ─── Fix default Leaflet icon paths broken by bundlers ───────────────────────
+// ─── Fix default Leaflet icon paths broken by bundlers ────────────────────────
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  iconUrl:       "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+  shadowUrl:     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
-// ─── Custom emoji markers ─────────────────────────────────────────────────────
+// ─── Custom emoji markers ──────────────────────────────────────────────────────
 function emojiIcon(emoji, size = 42) {
   return L.divIcon({
     html: `<div style="font-size:${size}px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.5));">${emoji}</div>`,
@@ -25,32 +26,40 @@ const PATIENT_ICON   = emojiIcon("🏠", 44);
 const VEHICLE_ICON   = emojiIcon("🚑", 44);
 const DONE_ICON      = emojiIcon("✅", 44);
 
-// ─── Auto-fit map bounds ──────────────────────────────────────────────────────
+// ─── Auto-fit map bounds ───────────────────────────────────────────────────────
 function FitBounds({ positions }) {
   const map = useMap();
   useEffect(() => {
-    if (positions.length > 1) {
-      map.fitBounds(positions, { padding: [80, 80] });
-    }
+    if (positions.length > 1) map.fitBounds(positions, { padding: [80, 80] });
   }, [map, positions]);
   return null;
 }
 
-// ─── Linear interpolation ────────────────────────────────────────────────────
+// ─── Invalidate map size when pip mode changes ────────────────────────────────
+function InvalidateOnResize({ trigger }) {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 320);
+    return () => clearTimeout(t);
+  }, [trigger, map]);
+  return null;
+}
+
+// ─── Linear interpolation ─────────────────────────────────────────────────────
 function lerp(a, b, t) {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 }
 
-const TOTAL_SECONDS = 20 * 60; // 20 min mock
+const TOTAL_SECONDS = 20 * 60;
 
 /**
- * DeliveryTracker — full-screen, Zomato-style
+ * DeliveryTracker — full-screen with PIP minimize + back button + zoom controls
  *
  * Props:
  *   bloodbankCoords  [lat, lng]
  *   patientCoords    [lat, lng]
  *   requestInfo      { requesterName, bloodGroup, units }
- *   onArrived        () => void   — called when user confirms receipt
+ *   onArrived        () => void
  */
 export default function DeliveryTracker({
   bloodbankCoords,
@@ -58,11 +67,13 @@ export default function DeliveryTracker({
   requestInfo,
   onArrived,
 }) {
-  const [progress, setProgress]       = useState(0);
+  const navigate = useNavigate();
+  const [progress, setProgress]     = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(TOTAL_SECONDS);
-  const [mockDone, setMockDone]       = useState(false); // animation ended
-  const [confirming, setConfirming]   = useState(false); // "Arrived" mid-request
-  const rafRef  = useRef(null);
+  const [mockDone, setMockDone]     = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [minimized, setMinimized]   = useState(false); // PIP mode
+  const rafRef   = useRef(null);
   const startRef = useRef(null);
 
   const vehiclePos = lerp(bloodbankCoords, patientCoords, Math.min(progress, 1));
@@ -73,7 +84,7 @@ export default function DeliveryTracker({
     ? `Arriving in ${Math.ceil(secondsLeft / 60)} min`
     : `Arriving in ${secondsLeft}s`;
 
-  // Run animation clock
+  // ── Animation clock ───────────────────────────────────────────────────────
   useEffect(() => {
     startRef.current = performance.now();
     function tick(now) {
@@ -81,29 +92,87 @@ export default function DeliveryTracker({
       const t = Math.min(elapsed / TOTAL_SECONDS, 1);
       setProgress(t);
       setSecondsLeft(Math.max(0, Math.round(TOTAL_SECONDS - elapsed)));
-      if (t < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        setMockDone(true);
-      }
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      else setMockDone(true);
     }
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
+  // ── Clean up Leaflet body/html overflow on unmount (fixes white page on back) 
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
+
   const steps = [
-    { icon: "✅", label: "Request approved",      done: true },
-    { icon: "🚑", label: "Blood dispatched",       done: progress > 0.05 },
-    { icon: "📍", label: "En route",               done: progress > 0.1 },
-    { icon: "🏠", label: "Delivered",              done: mockDone },
+    { icon: "✅", label: "Request approved", done: true },
+    { icon: "🚑", label: "Blood dispatched", done: progress > 0.05 },
+    { icon: "📍", label: "En route",         done: progress > 0.1  },
+    { icon: "🏠", label: "Delivered",        done: mockDone        },
   ];
 
   const dotted = [bloodbankCoords, patientCoords];
   const driven = [bloodbankCoords, vehiclePos];
 
+  // ════════════════════════════════════════════════════════════════
+  //  PIP / MINIMIZED MODE
+  // ════════════════════════════════════════════════════════════════
+  if (minimized) {
+    return (
+      <div style={S.pipRoot}>
+        {/* ── Expand notch tab ── */}
+        <button style={S.pipTab} onClick={() => setMinimized(false)}>
+          <span style={S.pipTabArrow}>▲</span>
+          <span style={S.pipTabText}>Expand Tracker</span>
+        </button>
+
+        {/* ── Mini map ── */}
+        <div style={S.pipMapWrap}>
+          <MapContainer
+            center={lerp(bloodbankCoords, patientCoords, 0.5)}
+            zoom={13}
+            style={{ width: "100%", height: "100%" }}
+            zoomControl={false}
+            scrollWheelZoom={false}
+            dragging={false}
+            attributionControl={false}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <Polyline positions={dotted} pathOptions={{ color: "#c0392b", weight: 3, dashArray: "8 6", opacity: 0.35 }} />
+            <Polyline positions={driven} pathOptions={{ color: "#e74c3c", weight: 4, opacity: 1 }} />
+            <Marker position={bloodbankCoords} icon={BLOODBANK_ICON} />
+            <Marker position={patientCoords}   icon={PATIENT_ICON} />
+            {!mockDone && <Marker position={vehiclePos} icon={VEHICLE_ICON} />}
+            {mockDone  && <Marker position={patientCoords} icon={DONE_ICON} />}
+            <InvalidateOnResize trigger={minimized} />
+          </MapContainer>
+
+          {/* Click-to-expand overlay on the mini map */}
+          <div style={S.pipMapOverlay} onClick={() => setMinimized(false)} title="Click to expand" />
+        </div>
+
+        {/* ── Mini info bar ── */}
+        <div style={S.pipInfoBar}>
+          <span style={{ fontSize: 18 }}>🩸</span>
+          <div style={S.pipInfoText}>
+            <span style={{ color: "#ff6b6b", fontWeight: 700 }}>{requestInfo.bloodGroup}</span>
+            {" · "}{requestInfo.units} unit(s)
+          </div>
+          <div style={S.pipEta}>{eta}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  FULL-SCREEN MODE
+  // ════════════════════════════════════════════════════════════════
   return (
     <div style={S.root}>
-      {/* ════════════ FULL-SCREEN MAP ════════════ */}
+      {/* ════════ FULL-SCREEN MAP ════════ */}
       <MapContainer
         center={lerp(bloodbankCoords, patientCoords, 0.5)}
         zoom={13}
@@ -115,31 +184,33 @@ export default function DeliveryTracker({
           attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {/* Zoom control — positioned bottom-left, above the brand tag */}
+        <ZoomControl position="bottomleft" />
 
-        {/* Route lines */}
-        <Polyline
-          positions={dotted}
-          pathOptions={{ color: "#c0392b", weight: 4, dashArray: "10 8", opacity: 0.35 }}
-        />
-        <Polyline
-          positions={driven}
-          pathOptions={{ color: "#e74c3c", weight: 5, opacity: 1 }}
-        />
-
-        {/* Fixed markers */}
+        <Polyline positions={dotted} pathOptions={{ color: "#c0392b", weight: 4, dashArray: "10 8", opacity: 0.35 }} />
+        <Polyline positions={driven} pathOptions={{ color: "#e74c3c", weight: 5, opacity: 1 }} />
         <Marker position={bloodbankCoords} icon={BLOODBANK_ICON} />
         <Marker position={patientCoords}   icon={PATIENT_ICON} />
-
-        {/* Moving vehicle */}
         {!mockDone && <Marker position={vehiclePos} icon={VEHICLE_ICON} />}
         {mockDone  && <Marker position={patientCoords} icon={DONE_ICON} />}
-
         <FitBounds positions={dotted} />
+        <InvalidateOnResize trigger={minimized} />
       </MapContainer>
 
-      {/* ════════════ TOP STATUS OVERLAY ════════════ */}
+      {/* ════════ TOP STATUS OVERLAY ════════ */}
       <div style={S.topOverlay}>
         <div style={S.statusCard}>
+
+          {/* ← Back button */}
+          <button
+            style={S.backBtn}
+            onClick={() => navigate(-1)}
+            title="Go back"
+          >
+            ←
+          </button>
+
+          {/* Status info */}
           <div style={S.statusLeft}>
             <span style={S.bloodDrop}>🩸</span>
             <div>
@@ -152,10 +223,24 @@ export default function DeliveryTracker({
               </div>
             </div>
           </div>
-          <div style={S.etaBadge}>
-            <div style={S.etaLabel}>ETA</div>
-            <div style={S.etaValue}>{eta}</div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* ETA badge */}
+            <div style={S.etaBadge}>
+              <div style={S.etaLabel}>ETA</div>
+              <div style={S.etaValue}>{eta}</div>
+            </div>
+
+            {/* ⊟ Minimize button */}
+            <button
+              style={S.minimizeBtn}
+              onClick={() => setMinimized(true)}
+              title="Minimize to mini player"
+            >
+              <span style={{ fontSize: 18, lineHeight: 1 }}>⊟</span>
+            </button>
           </div>
+
         </div>
 
         {/* Glowing progress bar */}
@@ -164,7 +249,7 @@ export default function DeliveryTracker({
         </div>
       </div>
 
-      {/* ════════════ BOTTOM PANEL OVERLAY ════════════ */}
+      {/* ════════ BOTTOM PANEL OVERLAY ════════ */}
       <div style={S.bottomOverlay}>
         {/* Step indicators */}
         <div style={S.steps}>
@@ -172,10 +257,8 @@ export default function DeliveryTracker({
             <div key={i} style={S.step}>
               <div style={{
                 ...S.stepDot,
-                background: s.done
-                  ? "linear-gradient(135deg,#c0392b,#e74c3c)"
-                  : "rgba(255,255,255,0.1)",
-                boxShadow: s.done ? "0 0 14px rgba(231,76,60,0.6)" : "none",
+                background: s.done ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(255,255,255,0.1)",
+                boxShadow:  s.done ? "0 0 14px rgba(231,76,60,0.6)" : "none",
               }}>
                 <span style={{ fontSize: 15 }}>{s.icon}</span>
               </div>
@@ -191,18 +274,11 @@ export default function DeliveryTracker({
           onClick={async () => {
             if (confirming) return;
             setConfirming(true);
-            try {
-              await onArrived();
-            } finally {
-              setConfirming(false);
-            }
+            try { await onArrived(); }
+            finally { setConfirming(false); }
           }}
           disabled={confirming}
-          style={{
-            ...S.arrivedBtn,
-            opacity: confirming ? 0.7 : 1,
-            transform: confirming ? "scale(0.97)" : "scale(1)",
-          }}
+          style={{ ...S.arrivedBtn, opacity: confirming ? 0.7 : 1, transform: confirming ? "scale(0.97)" : "scale(1)" }}
         >
           {confirming ? (
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -222,8 +298,9 @@ export default function DeliveryTracker({
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const S = {
+  // ── Full-screen root ──────────────────────────────────────────────────────
   root: {
     position: "fixed",
     inset: 0,
@@ -231,12 +308,44 @@ const S = {
     fontFamily: "'Inter','Segoe UI',sans-serif",
   },
 
-  /* ── Top overlay ── */
+  // ── Back button ───────────────────────────────────────────────────────────
+  backBtn: {
+    background: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 10,
+    color: "#fff",
+    fontSize: 20,
+    width: 38,
+    height: 38,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    flexShrink: 0,
+    transition: "background 0.2s",
+    marginRight: 4,
+  },
+
+  // ── Minimize button ───────────────────────────────────────────────────────
+  minimizeBtn: {
+    background: "rgba(255,255,255,0.1)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 10,
+    color: "#fff",
+    width: 38,
+    height: 38,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    flexShrink: 0,
+    transition: "background 0.2s",
+  },
+
+  // ── Top overlay ───────────────────────────────────────────────────────────
   topOverlay: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     zIndex: 400,
     pointerEvents: "auto",
   },
@@ -244,42 +353,45 @@ const S = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "14px 20px 10px",
+    padding: "12px 16px 10px",
     background: "rgba(10,0,0,0.82)",
     backdropFilter: "blur(16px)",
     borderBottom: "1px solid rgba(192,57,43,0.3)",
+    gap: 10,
   },
   statusLeft: {
     display: "flex",
     alignItems: "center",
     gap: 12,
+    flex: 1,
   },
   bloodDrop: {
-    fontSize: 32,
+    fontSize: 28,
     filter: "drop-shadow(0 2px 8px rgba(192,57,43,0.9))",
+    flexShrink: 0,
   },
   statusTitle: {
     color: "#fff",
     fontWeight: 700,
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 1.3,
   },
   statusSub: {
     color: "rgba(255,255,255,0.5)",
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   etaBadge: {
     background: "linear-gradient(135deg,#8b0000,#c0392b)",
-    borderRadius: 12,
-    padding: "8px 16px",
+    borderRadius: 10,
+    padding: "7px 14px",
     textAlign: "center",
     boxShadow: "0 4px 20px rgba(192,57,43,0.6)",
-    minWidth: 110,
+    minWidth: 100,
   },
   etaLabel: {
     color: "rgba(255,255,255,0.55)",
-    fontSize: 10,
+    fontSize: 9,
     letterSpacing: 1.5,
     textTransform: "uppercase",
     marginBottom: 2,
@@ -287,7 +399,7 @@ const S = {
   etaValue: {
     color: "#fff",
     fontWeight: 800,
-    fontSize: 13,
+    fontSize: 12,
     whiteSpace: "nowrap",
   },
   progressTrack: {
@@ -301,12 +413,10 @@ const S = {
     boxShadow: "0 0 14px rgba(255,107,107,0.9)",
   },
 
-  /* ── Bottom overlay ── */
+  // ── Bottom overlay ────────────────────────────────────────────────────────
   bottomOverlay: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 0, left: 0, right: 0,
     zIndex: 400,
     background: "rgba(10,0,0,0.88)",
     backdropFilter: "blur(20px)",
@@ -326,8 +436,7 @@ const S = {
     gap: 6,
   },
   stepDot: {
-    width: 42,
-    height: 42,
+    width: 42, height: 42,
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
@@ -344,7 +453,7 @@ const S = {
     letterSpacing: 0.2,
   },
 
-  /* ── Arrived button ── */
+  // ── Arrived button ────────────────────────────────────────────────────────
   arrivedBtn: {
     width: "100%",
     padding: "16px 24px",
@@ -366,8 +475,7 @@ const S = {
   },
   spinner: {
     display: "inline-block",
-    width: 16,
-    height: 16,
+    width: 16, height: 16,
     border: "2px solid rgba(255,255,255,0.3)",
     borderTop: "2px solid #fff",
     borderRadius: "50%",
@@ -379,5 +487,92 @@ const S = {
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+  },
+
+  // ── PIP / Minimized styles ────────────────────────────────────────────────
+  pipRoot: {
+    position: "fixed",
+    bottom: 20,
+    right: 20,
+    width: 300,
+    zIndex: 9000,
+    borderRadius: 16,
+    overflow: "visible",
+    boxShadow: "0 16px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(192,57,43,0.4)",
+    fontFamily: "'Inter','Segoe UI',sans-serif",
+    animation: "slideUpPip 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+  },
+
+  // The pull-tab notch above the PIP card
+  pipTab: {
+    position: "absolute",
+    top: -36,
+    left: "50%",
+    transform: "translateX(-50%)",
+    background: "linear-gradient(135deg,#8b0000,#c0392b)",
+    color: "#fff",
+    border: "none",
+    borderRadius: "10px 10px 0 0",
+    padding: "6px 18px 8px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    boxShadow: "0 -4px 14px rgba(192,57,43,0.5)",
+    whiteSpace: "nowrap",
+    fontFamily: "'Inter','Segoe UI',sans-serif",
+  },
+  pipTabArrow: {
+    fontSize: 12,
+    animation: "bounce 1.4s ease-in-out infinite",
+  },
+  pipTabText: {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+
+  // Mini map
+  pipMapWrap: {
+    width: "100%",
+    height: 170,
+    borderRadius: "16px 16px 0 0",
+    overflow: "hidden",
+    position: "relative",
+    background: "#1a1a1a",
+  },
+  // Transparent overlay so click-to-expand works on the whole map area
+  pipMapOverlay: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 500,
+    cursor: "pointer",
+    background: "transparent",
+  },
+
+  // Mini info bar
+  pipInfoBar: {
+    background: "rgba(10,0,0,0.92)",
+    backdropFilter: "blur(12px)",
+    borderRadius: "0 0 16px 16px",
+    padding: "10px 14px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    borderTop: "1px solid rgba(192,57,43,0.3)",
+  },
+  pipInfoText: {
+    flex: 1,
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+    fontWeight: 500,
+  },
+  pipEta: {
+    color: "#ff6b6b",
+    fontSize: 11,
+    fontWeight: 700,
+    textAlign: "right",
+    whiteSpace: "nowrap",
   },
 };
