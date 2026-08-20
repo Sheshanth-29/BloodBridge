@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
 import {
   Droplet, Send, ClipboardList, CheckCircle2,
-  Truck, PackageCheck, AlertCircle, Clock
+  Truck, PackageCheck, AlertCircle, Clock, RefreshCw
 } from "lucide-react";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
@@ -99,6 +99,13 @@ export default function HospitalDashboard() {
   const [actingId, setActingId] = useState(null);
   const [error, setError] = useState("");
   const [, forceTick] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchRequests();
+    setRefreshing(false);
+  };
 
   const fetchRequests = async () => {
     try {
@@ -162,11 +169,22 @@ export default function HospitalDashboard() {
       <div className="max-w-3xl mx-auto px-6 py-10">
 
         {/* ── Header ── */}
-        <div className="mb-8 animate-fade-in-up">
-          <h1 className="text-2xl font-bold text-gray-800 mb-1">
-            Welcome, {user?.name || "Hospital"}
-          </h1>
-          <p className="text-gray-500 text-sm">Raise a blood request to nearby blood banks.</p>
+        <div className="mb-8 animate-fade-in-up flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-1">
+              Welcome, {user?.name || "Hospital"}
+            </h1>
+            <p className="text-gray-500 text-sm">Raise a blood request to nearby blood banks.</p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            title="Refresh dashboard data"
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 bg-white rounded-xl px-3 py-2 shadow-sm transition-all duration-200 disabled:opacity-50 mt-1"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
         </div>
 
         {/* ── Request form ── */}

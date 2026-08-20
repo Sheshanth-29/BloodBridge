@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import DeliveryTracker from "../../components/common/DeliveryTracker";
+
+const PENDING_KEY = "bloodbridge_pending_request_id";
 
 // ─── Mock coordinates ─────────────────────────────────────────────────────────
 // Blood bank: Coimbatore city centre (swap for real coords in production)
@@ -18,6 +20,7 @@ function mockPatientCoords(address) {
 export default function TrackRequest() {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const stateData = location.state || {};
   const [request, setRequest]   = useState(stateData.request || null);
@@ -25,11 +28,13 @@ export default function TrackRequest() {
   const [approved, setApproved] = useState(
     stateData.request?.status?.toLowerCase() === "approved"
   );
-  const [delivered, setDelivered] = useState(false); // user clicked "Arrived"
+  const [delivered, setDelivered] = useState(
+    stateData.request?.status?.toLowerCase() === "delivered"
+  );
 
   const patientCoords = mockPatientCoords(request?.address);
 
-  // Poll every 5 s until approved
+  // Poll every 5 s until approved or terminal
   useEffect(() => {
     let cancelled = false;
 
@@ -42,6 +47,10 @@ export default function TrackRequest() {
           const s = res.data.status?.toLowerCase();
           if (s === "approved")  setApproved(true);
           if (s === "delivered") { setApproved(true); setDelivered(true); }
+          // Clear pending key on terminal states so the form shows fresh next time
+          if (s === "delivered" || s === "declined") {
+            localStorage.removeItem(PENDING_KEY);
+          }
         }
       } catch (err) {
         console.error("Polling error:", err);
@@ -51,15 +60,16 @@ export default function TrackRequest() {
 
     poll();
     const interval = setInterval(() => {
-      if (!approved) poll();
+      if (!approved && !delivered) poll();
     }, 5000);
 
     return () => { cancelled = true; clearInterval(interval); };
-  }, [id, approved]);
+  }, [id, approved, delivered]);
 
   // Called when patient presses "Blood Arrived"
   async function handleArrived() {
     await api.patch(`/requests/${id}`, { status: "Delivered" });
+    localStorage.removeItem(PENDING_KEY);
     setDelivered(true);
   }
 
@@ -83,6 +93,12 @@ export default function TrackRequest() {
           Your request could not be fulfilled at this time.
           <br />Please contact the blood bank or submit a new request.
         </p>
+        <button
+          onClick={() => { localStorage.removeItem(PENDING_KEY); navigate("/request-blood"); }}
+          style={S.newRequestBtn}
+        >
+          Submit a New Request
+        </button>
       </div>
     );
   }
@@ -109,6 +125,12 @@ export default function TrackRequest() {
             <span style={S.greenBadge}>✅ Delivered</span>
           } />
         </div>
+        <button
+          onClick={() => navigate("/request-blood")}
+          style={{ ...S.newRequestBtn, marginTop: 24 }}
+        >
+          Submit a New Request
+        </button>
       </div>
     );
   }
@@ -257,5 +279,19 @@ const S = {
     padding: "2px 10px",
     fontSize: 13,
     fontWeight: 600,
+  },
+  newRequestBtn: {
+    marginTop: 16,
+    padding: "12px 28px",
+    background: "linear-gradient(135deg,#8b0000,#c0392b)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 12,
+    fontFamily: "'Inter','Segoe UI',sans-serif",
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: "pointer",
+    letterSpacing: 0.3,
+    boxShadow: "0 4px 20px rgba(192,57,43,0.5)",
   },
 };

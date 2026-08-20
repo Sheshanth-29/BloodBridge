@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
+
+// Key used to remember the active request ID across page refreshes
+const PENDING_KEY = "bloodbridge_pending_request_id";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
 
 export default function RequestBlood() {
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -21,7 +26,12 @@ export default function RequestBlood() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
 
-  const navigate = useNavigate();
+  // ── If there's already a pending/active request (e.g. after browser refresh),
+  //    skip the form and jump straight to the tracking page.
+  useEffect(() => {
+    const savedId = localStorage.getItem(PENDING_KEY);
+    if (savedId) navigate(`/track/${savedId}`, { replace: true });
+  }, [navigate]);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -57,15 +67,14 @@ export default function RequestBlood() {
     e.preventDefault();
     try {
       const res = await api.post("/requests", form);
-      // Navigate to live tracking page, passing the request so it can show immediately
+      // Persist ID so a browser refresh on /request-blood returns to this request
+      localStorage.setItem(PENDING_KEY, res.data.id);
       navigate(`/track/${res.data.id}`, { state: { request: res.data } });
     } catch (err) {
       console.error(err);
       alert("Failed to submit request. Please try again.");
     }
   };
-
-
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-6 py-10 bg-gradient-to-br from-red-100 via-red-50 to-rose-100">

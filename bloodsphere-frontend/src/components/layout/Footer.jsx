@@ -1,6 +1,9 @@
 import { Droplet, Mail, Phone, MapPin, Heart } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 export default function Footer() {
+  const location = useLocation();
+  if (location.pathname.startsWith("/track/")) return null;
   return (
     <footer className="bg-gradient-to-br from-red-900 to-rose-950 text-red-50 mt-auto">
 

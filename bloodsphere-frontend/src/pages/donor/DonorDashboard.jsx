@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
 import {
   Droplet, Heart, Calendar, Building2, MapPin,
-  CheckCircle2, AlertCircle, Loader2, ServerCrash,
+  CheckCircle2, AlertCircle, Loader2, ServerCrash, RefreshCw,
 } from "lucide-react";
 
 // ── iOS-style toggle switch ────────────────────────────────────────────────
@@ -53,29 +53,32 @@ export default function DonorDashboard() {
   const [donations, setDonations] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDonations = useCallback(async (silent = false) => {
+    if (!silent) setLoadingHistory(true);
+    setHistoryError(null);
+    try {
+      const res = await api.get("/donations/mine");
+      setDonations(res.data);
+    } catch (err) {
+      setHistoryError(
+        err?.response?.data?.message || "Could not load donation history."
+      );
+    } finally {
+      if (!silent) setLoadingHistory(false);
+    }
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchDonations(true);
+    setRefreshing(false);
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    setLoadingHistory(true);
-    setHistoryError(null);
-
-    api
-      .get("/donations/mine")
-      .then((res) => {
-        if (!cancelled) setDonations(res.data);
-      })
-      .catch((err) => {
-        if (!cancelled)
-          setHistoryError(
-            err?.response?.data?.message || "Could not load donation history."
-          );
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingHistory(false);
-      });
-
-    return () => { cancelled = true; };
-  }, []);
+    fetchDonations();
+  }, [fetchDonations]);
 
   // Eligibility is driven from the real user record in AuthContext
   const nextEligibleDate = user?.nextEligibleDate
@@ -93,30 +96,41 @@ export default function DonorDashboard() {
       <div className="max-w-3xl mx-auto px-6 py-10">
 
         {/* ── Welcome header ── */}
-        <div className="mb-8 animate-fade-in-up">
-          <div className="flex flex-wrap items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold text-gray-800">
-              Welcome, {user?.name || "Donor"}
-            </h1>
-            <StatusBadge available={isAvailable} />
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-1">
-            {user?.bloodGroup && (
-              <>
+        <div className="mb-8 animate-fade-in-up flex items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3 mb-1">
+              <h1 className="text-2xl font-bold text-gray-800">
+                Welcome, {user?.name || "Donor"}
+              </h1>
+              <StatusBadge available={isAvailable} />
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-1">
+              {user?.bloodGroup && (
+                <>
+                  <span className="flex items-center gap-1">
+                    <Droplet size={14} className="text-red-500 fill-red-500" />
+                    <span className="font-semibold text-red-600">{user.bloodGroup}</span>
+                  </span>
+                  <span className="text-gray-300">·</span>
+                </>
+              )}
+              {user?.city && (
                 <span className="flex items-center gap-1">
-                  <Droplet size={14} className="text-red-500 fill-red-500" />
-                  <span className="font-semibold text-red-600">{user.bloodGroup}</span>
+                  <MapPin size={13} className="text-gray-400" />
+                  {user.city}
                 </span>
-                <span className="text-gray-300">·</span>
-              </>
-            )}
-            {user?.city && (
-              <span className="flex items-center gap-1">
-                <MapPin size={13} className="text-gray-400" />
-                {user.city}
-              </span>
-            )}
+              )}
+            </div>
           </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing || loadingHistory}
+            title="Refresh donation history"
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 bg-white rounded-xl px-3 py-2 shadow-sm transition-all duration-200 disabled:opacity-50 mt-1 shrink-0"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
         </div>
 
         {/* ── Availability card ── */}

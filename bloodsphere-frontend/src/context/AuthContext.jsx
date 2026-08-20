@@ -1,18 +1,16 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState } from "react";
 
 const AuthContext = createContext(null);
 
 // Wrap the whole app with this so any page can check "who is logged in?"
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // { id, name, email, role }
-  const [loading, setLoading] = useState(true);
-
-  // On first load, check if a session was saved from before (page refresh)
-  useEffect(() => {
+  // Initialize synchronously from localStorage — this prevents the brief
+  // user=null flash on page refresh that was causing ProtectedRoute to redirect.
+  const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("bloodbridge_user");
-    if (saved) setUser(JSON.parse(saved));
-    setLoading(false);
-  }, []);
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [loading, setLoading] = useState(false);
 
   const login = (userData, token) => {
     localStorage.setItem("bloodbridge_user", JSON.stringify(userData));

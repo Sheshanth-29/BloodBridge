@@ -22,6 +22,9 @@ export default function Navbar() {
   };
 
   const isHome = location.pathname === "/";
+  // Hide the navbar on the full-screen delivery tracker so the map fills the viewport
+  const isTracker = location.pathname.startsWith("/track/");
+  if (isTracker) return null;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
