@@ -26,11 +26,18 @@ const PATIENT_ICON   = emojiIcon("🏠", 44);
 const VEHICLE_ICON   = emojiIcon("🚑", 44);
 const DONE_ICON      = emojiIcon("✅", 44);
 
-// ─── Auto-fit map bounds ───────────────────────────────────────────────────────
+// ─── Auto-fit map bounds — runs ONCE on first mount only ─────────────────────
+// If positions is passed as a new array literal each render, the map would
+// snap back to the fitted view every time the vehicle moves, preventing the
+// user from panning or zooming manually. The mounted ref stops that.
 function FitBounds({ positions }) {
   const map = useMap();
+  const fitted = useRef(false);
   useEffect(() => {
-    if (positions.length > 1) map.fitBounds(positions, { padding: [80, 80] });
+    if (!fitted.current && positions.length > 1) {
+      map.fitBounds(positions, { padding: [80, 80] });
+      fitted.current = true;
+    }
   }, [map, positions]);
   return null;
 }
@@ -134,6 +141,9 @@ export default function DeliveryTracker({
             style={{ width: "100%", height: "100%" }}
             zoomControl={false}
             scrollWheelZoom={true}
+            dragging={true}
+            touchZoom={true}
+            doubleClickZoom={true}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
