@@ -171,8 +171,19 @@ export default function BloodBankDashboard() {
     setConfirmMsg("");
     try {
       const res = await api.post("/donations/confirm", { donorId, units: 1 });
-      setConfirmMsg(`✓ Donation confirmed — reward coupon ${res.data.couponCode} emailed to donor.`);
-      searchDonors(); // refresh — donor will drop off since they're now unavailable
+      const { donation, couponCode } = res.data;
+
+      // ── Add donated units to the matching blood group in stock ──────────────
+      setStock((prev) =>
+        prev.map((s) =>
+          s.bloodGroup === donation.bloodGroup
+            ? { ...s, units: s.units + donation.units }
+            : s
+        )
+      );
+
+      setConfirmMsg(`✓ Donation confirmed — ${donation.units} unit(s) of ${donation.bloodGroup} added to stock. Reward coupon ${couponCode} emailed to donor.`);
+      searchDonors(); // refresh donor list — donor drops off (now unavailable)
     } catch (err) {
       setConfirmMsg(err.response?.data?.message || "Failed to confirm donation");
     } finally {
