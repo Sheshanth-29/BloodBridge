@@ -1,3 +1,8 @@
+# Environment variables — set these in Vercel / Render dashboards
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
