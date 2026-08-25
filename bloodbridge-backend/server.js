@@ -30,7 +30,7 @@ app.use("/api/donors", donorRoutes);
 const PORT = process.env.PORT || 5000;
 
 sequelize
-  .sync()
+  .sync({ alter: true })
   .then(() => {
     console.log("✅ Database connected and synced");
     app.listen(PORT, () => {

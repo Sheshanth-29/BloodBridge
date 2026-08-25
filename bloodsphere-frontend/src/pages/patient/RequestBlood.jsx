@@ -26,12 +26,14 @@ export default function RequestBlood() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
 
-  // ── If there's already a pending/active request (e.g. after browser refresh),
-  //    skip the form and jump straight to the tracking page.
+  // ── If there's an existing pending request, show a resume banner instead of
+  //    auto-redirecting (which caused a blank-page loop when the user hit back).
+  const [resumeId, setResumeId] = useState(null);
+
   useEffect(() => {
     const savedId = localStorage.getItem(PENDING_KEY);
-    if (savedId) navigate(`/track/${savedId}`, { replace: true });
-  }, [navigate]);
+    if (savedId) setResumeId(savedId);
+  }, []);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -66,6 +68,8 @@ export default function RequestBlood() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Clear any stale pending key before creating a new request
+      localStorage.removeItem(PENDING_KEY);
       const res = await api.post("/requests", form);
       // Persist ID so a browser refresh on /request-blood returns to this request
       localStorage.setItem(PENDING_KEY, res.data.id);
@@ -84,6 +88,29 @@ export default function RequestBlood() {
       >
         <h2 className="text-2xl font-bold text-gray-800 mb-1">Request Blood</h2>
         <p className="text-sm text-gray-500 mb-6">No account needed. Verify your email to submit.</p>
+
+        {/* Resume banner — shown when a previous request ID is found in localStorage */}
+        {resumeId && (
+          <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+            <p className="text-amber-800 font-medium mb-2">⚠️ You have an active request in progress.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(`/track/${resumeId}`)}
+                className="flex-1 bg-amber-500 text-white py-1.5 rounded-md text-xs font-semibold hover:bg-amber-600"
+              >
+                Resume Tracking
+              </button>
+              <button
+                type="button"
+                onClick={() => { localStorage.removeItem(PENDING_KEY); setResumeId(null); }}
+                className="flex-1 bg-white border border-amber-300 text-amber-700 py-1.5 rounded-md text-xs font-semibold hover:bg-amber-50"
+              >
+                Start New Request
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3">
           <input

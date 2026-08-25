@@ -93,12 +93,20 @@ export default function TrackRequest() {
           Your request could not be fulfilled at this time.
           <br />Please contact the blood bank or submit a new request.
         </p>
-        <button
-          onClick={() => { localStorage.removeItem(PENDING_KEY); navigate("/request-blood"); }}
-          style={S.newRequestBtn}
-        >
-          Submit a New Request
-        </button>
+        <div style={S.btnRow}>
+          <button
+            onClick={() => navigate("/")}
+            style={S.homeBtn}
+          >
+            🏠 Back to Home
+          </button>
+          <button
+            onClick={() => { localStorage.removeItem(PENDING_KEY); navigate("/request-blood"); }}
+            style={S.newRequestBtn}
+          >
+            Submit a New Request
+          </button>
+        </div>
       </div>
     );
   }
@@ -125,12 +133,20 @@ export default function TrackRequest() {
             <span style={S.greenBadge}>✅ Delivered</span>
           } />
         </div>
-        <button
-          onClick={() => navigate("/request-blood")}
-          style={{ ...S.newRequestBtn, marginTop: 24 }}
-        >
-          Submit a New Request
-        </button>
+        <div style={S.btnRow}>
+          <button
+            onClick={() => navigate("/")}
+            style={S.homeBtn}
+          >
+            🏠 Back to Home
+          </button>
+          <button
+            onClick={() => { localStorage.removeItem(PENDING_KEY); navigate("/request-blood"); }}
+            style={{ ...S.newRequestBtn, marginTop: 0 }}
+          >
+            Submit a New Request
+          </button>
+        </div>
       </div>
     );
   }
@@ -281,7 +297,6 @@ const S = {
     fontWeight: 600,
   },
   newRequestBtn: {
-    marginTop: 16,
     padding: "12px 28px",
     background: "linear-gradient(135deg,#8b0000,#c0392b)",
     color: "#fff",
@@ -293,5 +308,25 @@ const S = {
     cursor: "pointer",
     letterSpacing: 0.3,
     boxShadow: "0 4px 20px rgba(192,57,43,0.5)",
+  },
+  homeBtn: {
+    padding: "12px 28px",
+    background: "rgba(255,255,255,0.08)",
+    color: "rgba(255,255,255,0.85)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 12,
+    fontFamily: "'Inter','Segoe UI',sans-serif",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    letterSpacing: 0.3,
+    backdropFilter: "blur(8px)",
+  },
+  btnRow: {
+    display: "flex",
+    gap: 12,
+    marginTop: 24,
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
 };

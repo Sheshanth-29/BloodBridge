@@ -17,20 +17,26 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    navigate("/login");
+    // Navigate first so ProtectedRoute doesn't see user=null while still
+    // mounted on a protected path and issue a second Navigate redirect —
+    // that double-redirect was what caused the blank white flash.
+    navigate("/login", { replace: true });
+    // Small delay lets React finish the route transition before clearing auth
+    setTimeout(() => logout(), 50);
   };
 
   const isHome = location.pathname === "/";
   // Hide the navbar on the full-screen delivery tracker so the map fills the viewport
   const isTracker = location.pathname.startsWith("/track/");
-  if (isTracker) return null;
 
+  // ⚠️ All hooks MUST be called before any conditional return (Rules of Hooks)
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  if (isTracker) return null;
 
   return (
     <nav

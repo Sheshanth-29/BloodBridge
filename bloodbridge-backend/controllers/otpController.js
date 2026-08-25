@@ -1,4 +1,4 @@
-const transporter = require("../config/mailer");
+const { sendEmail } = require("../config/mailer");
 
 // Simple in-memory store for OTPs — fine for a demo project.
 // Key: email, Value: { otp, expiresAt }
@@ -12,8 +12,7 @@ exports.sendEmailOtp = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     otpStore[email] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 }; // 5 min validity
 
-    await transporter.sendMail({
-      from: `"BloodBridge" <${process.env.EMAIL_USER}>`,
+    await sendEmail({
       to: email,
       subject: "Your BloodBridge verification code",
       text: `Your OTP is ${otp}. It expires in 5 minutes.`,

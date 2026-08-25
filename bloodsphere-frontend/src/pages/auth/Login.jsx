@@ -32,7 +32,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[88vh] flex items-center justify-center px-6 bg-gradient-to-br from-red-50 via-rose-50 to-white">
+    <div className="min-h-[88vh] flex items-center justify-center px-6 bg-gradient-to-br from-red-50 via-rose-50 to-white animate-fade-in-up">
       <div className="w-full max-w-sm">
         {/* Card */}
         <form

@@ -1,4 +1,4 @@
-const transporter = require("../config/mailer");
+const { sendEmail } = require("../config/mailer");
 const User = require("../models/User");
 const Donation = require("../models/Donation");
 
@@ -70,68 +70,72 @@ exports.confirmDonation = async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Your BloodBridge Reward</title>
 </head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
 
-  <!-- Wrapper -->
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 0;">
     <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.10);">
 
-        <!-- ── Header bar ── -->
+        <!-- ── RED HEADER ── -->
         <tr>
-          <td style="background:linear-gradient(135deg,#b91c1c 0%,#dc2626 50%,#be123c 100%);border-radius:16px 16px 0 0;padding:36px 40px;text-align:center;">
-            <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;margin-bottom:16px;">🩸</div>
-            <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;letter-spacing:-0.5px;">Thank You for Donating!</h1>
-            <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">Your generosity saves lives — here's your reward.</p>
+          <td style="background:linear-gradient(160deg,#b91c1c 0%,#dc2626 55%,#be123c 100%);padding:44px 40px 36px;text-align:center;">
+
+            <!-- Blood-drop SVG icon in a frosted circle -->
+            <div style="display:inline-block;background:rgba(255,255,255,0.18);border-radius:50%;width:72px;height:72px;margin-bottom:18px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72">
+                <path d="M36 14 C36 14 20 32 20 44 C20 53.4 27.2 61 36 61 C44.8 61 52 53.4 52 44 C52 32 36 14 36 14 Z" fill="rgba(255,255,255,0.90)"/>
+              </svg>
+            </div>
+
+            <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;line-height:1.2;">Thank You for Donating!</h1>
+            <p style="margin:10px 0 0;color:rgba(255,255,255,0.82);font-size:14px;">Your generosity saves lives &#8212; here&apos;s your reward.</p>
           </td>
         </tr>
 
-        <!-- ── Body ── -->
+        <!-- ── WHITE BODY ── -->
         <tr>
-          <td style="background:#ffffff;padding:36px 40px;">
+          <td style="background:#ffffff;padding:36px 40px 32px;">
 
-            <!-- Greeting -->
-            <p style="margin:0 0 20px;font-size:16px;color:#374151;">Hi <strong style="color:#111827;">${donor.name}</strong>,</p>
-            <p style="margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;">
+            <p style="margin:0 0 18px;font-size:16px;color:#374151;">Hi <strong style="color:#111827;">${donor.name}</strong>,</p>
+
+            <p style="margin:0 0 30px;font-size:15px;color:#6b7280;line-height:1.7;">
               You donated blood at <strong style="color:#111827;">${bloodBankName}</strong> today.
-              Every drop counts — your contribution could save up to <strong style="color:#b91c1c;">3 lives</strong>. 
+              Every drop counts &#8212; your contribution could save up to <strong style="color:#b91c1c;">3 lives</strong>.
               As a token of our gratitude, here is your exclusive reward coupon:
             </p>
 
-            <!-- ── Coupon card ── -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+            <!-- ── COUPON CARD ── -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:30px;">
               <tr>
-                <td style="background:linear-gradient(135deg,#fff1f2 0%,#fef2f2 100%);border:2px dashed #fca5a5;border-radius:14px;padding:28px;text-align:center;">
-                  <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#9ca3af;">Your Coupon Code</p>
-                  <div style="display:inline-block;background:#b91c1c;color:#ffffff;font-size:26px;font-weight:800;letter-spacing:6px;padding:14px 32px;border-radius:10px;margin:10px 0;font-family:'Courier New',monospace;box-shadow:0 4px 16px rgba(185,28,28,0.35);">
+                <td style="background:linear-gradient(135deg,#fff1f2 0%,#fef2f2 100%);border:2px dashed #fca5a5;border-radius:16px;padding:30px 24px;text-align:center;">
+                  <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#9ca3af;">Your Coupon Code</p>
+                  <div style="display:inline-block;background:#9b1c1c;color:#ffffff;font-size:26px;font-weight:800;letter-spacing:5px;padding:14px 36px;border-radius:12px;margin:4px 0 14px;font-family:'Courier New',Courier,monospace;">
                     ${couponCode}
                   </div>
-                  <p style="margin:10px 0 0;font-size:12px;color:#9ca3af;">Use this code on our partner platforms for exclusive discounts!</p>
+                  <p style="margin:0;font-size:12px;color:#9ca3af;">Use this code on our partner platforms for exclusive discounts!</p>
                 </td>
               </tr>
             </table>
 
-            <!-- Info row -->
+            <!-- ── INFO TILES ── -->
             <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
               <tr>
-                <td width="50%" style="background:#f9fafb;border-radius:10px;padding:16px 20px;vertical-align:top;">
-                  <p style="margin:0 0 4px;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;">Donated At</p>
+                <td style="background:#f9fafb;border-radius:12px;padding:16px 20px;vertical-align:top;width:50%;">
+                  <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;">Donated At</p>
                   <p style="margin:0;font-size:14px;font-weight:600;color:#111827;">${bloodBankName}</p>
                 </td>
-                <td width="8" style="width:8px;"></td>
-                <td width="50%" style="background:#f9fafb;border-radius:10px;padding:16px 20px;vertical-align:top;">
-                  <p style="margin:0 0 4px;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;">Next Eligible Date</p>
+                <td style="width:10px;"></td>
+                <td style="background:#f9fafb;border-radius:12px;padding:16px 20px;vertical-align:top;width:50%;">
+                  <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;">Next Eligible Date</p>
                   <p style="margin:0;font-size:14px;font-weight:600;color:#111827;">${nextEligible.toDateString()}</p>
                 </td>
               </tr>
             </table>
 
-            <!-- Divider -->
-            <hr style="border:none;border-top:1px solid #f3f4f6;margin:0 0 24px;" />
+            <hr style="border:none;border-top:1px solid #f3f4f6;margin:0 0 22px;" />
 
-            <!-- Perks note -->
-            <p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6;">
-              ❤️ &nbsp;As a token of gratitude, you and your family are eligible for a 
+            <p style="margin:0 0 6px;font-size:14px;color:#374151;line-height:1.6;">
+              &#10084;&#65039;&nbsp; As a token of gratitude, you and your family are eligible for a
               <strong style="color:#b91c1c;">one-time free medical check-up</strong> through our partner hospitals.
             </p>
             <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;">
@@ -141,13 +145,11 @@ exports.confirmDonation = async (req, res) => {
           </td>
         </tr>
 
-        <!-- ── Footer ── -->
+        <!-- ── FOOTER ── -->
         <tr>
-          <td style="background:#111827;border-radius:0 0 16px 16px;padding:24px 40px;text-align:center;">
-            <p style="margin:0 0 6px;color:#f9fafb;font-size:15px;font-weight:700;letter-spacing:-0.3px;">
-              🩸 BloodBridge
-            </p>
-            <p style="margin:0;font-size:12px;color:#6b7280;">
+          <td style="background:#111827;padding:24px 40px;text-align:center;border-radius:0 0 20px 20px;">
+            <p style="margin:0 0 6px;color:#f9fafb;font-size:15px;font-weight:700;letter-spacing:-0.3px;">&#129656; BloodBridge</p>
+            <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.6;">
               Connecting donors, hospitals &amp; blood banks in real time.<br/>
               This email was sent because you completed a donation on our platform.
             </p>
@@ -161,11 +163,10 @@ exports.confirmDonation = async (req, res) => {
 </body>
 </html>`;
 
-      await transporter.sendMail({
-        from: `"BloodBridge" <${process.env.EMAIL_USER}>`,
+      await sendEmail({
         to: donor.email,
-        subject: "🩸 Thank You for Donating Blood — Your BloodBridge Reward Coupon",
-        text: `Hi ${donor.name},\n\nThank you for donating blood today at ${bloodBankName}!\n\nYour Coupon Code: ${couponCode}\n\nYou'll be eligible to donate again on ${nextEligible.toDateString()}.\n\n— BloodBridge`,
+        subject: "Thank You for Donating! — Your BloodBridge Reward Coupon",
+        text: `Hi ${donor.name},\n\nThank you for donating blood today at ${bloodBankName}! Your contribution could save up to 3 lives.\n\nYour Reward Coupon Code: ${couponCode}\n\nYou'll be eligible to donate again on ${nextEligible.toDateString()}.\n\n— BloodBridge`,
         html,
       });
     } catch (mailErr) {

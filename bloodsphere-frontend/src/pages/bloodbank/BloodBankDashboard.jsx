@@ -83,6 +83,7 @@ export default function BloodBankDashboard() {
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [actingId, setActingId] = useState(null);
+  const [showAllRequests, setShowAllRequests] = useState(false);
 
   // Donor search + confirm
   const [searchGroup, setSearchGroup] = useState("");
@@ -379,12 +380,20 @@ export default function BloodBankDashboard() {
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {requests.map((r) => (
+              {(showAllRequests ? requests : requests.slice(0, 5)).map((r) => (
                 <div key={r.id} className="py-4 flex items-start justify-between gap-3 text-sm">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="font-semibold text-gray-700">{r.requesterName}</span>
-                      <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize">{r.requesterType}</span>
+                      {/* If a hospital submitted on behalf of a patient, show both */}
+                      {r.hospitalName && r.hospitalName !== r.requesterName && (
+                        <span className="text-[10px] text-gray-400 italic">
+                          via {r.hospitalName}
+                        </span>
+                      )}
+                      <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize">
+                        {r.requesterType}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="bg-red-100 text-red-600 text-xs font-bold px-1.5 py-0.5 rounded">{r.bloodGroup}</span>
@@ -417,6 +426,20 @@ export default function BloodBankDashboard() {
                   )}
                 </div>
               ))}
+
+              {/* View more / Show less */}
+              {requests.length > 5 && (
+                <div className="pt-4 text-center">
+                  <button
+                    onClick={() => setShowAllRequests((prev) => !prev)}
+                    className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:border-red-400 bg-red-50 hover:bg-red-100 rounded-xl px-5 py-2 transition-all duration-200"
+                  >
+                    {showAllRequests
+                      ? `Show less ▲`
+                      : `View more (${requests.length - 5} hidden) ▼`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

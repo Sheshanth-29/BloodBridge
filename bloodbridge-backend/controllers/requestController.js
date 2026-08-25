@@ -1,6 +1,6 @@
+const { sendEmail } = require("../config/mailer");
 const User = require("../models/User");
 const Request = require("../models/Request");
-const transporter = require("../config/mailer");
 
 // ─── Public: fetch a single request by id (used by patient tracking page) ───
 exports.getRequestById = async (req, res) => {
@@ -23,14 +23,13 @@ async function sendStatusEmail(toEmail, requesterName, request, status) {
   const emoji = isApproved ? "✅" : "❌";
   const label = isApproved ? "Approved" : "Declined";
 
-  await transporter.sendMail({
-    from: `"BloodBridge" <${process.env.EMAIL_USER}>`,
+  await sendEmail({
     to: toEmail,
     subject: `BloodBridge — Blood Request ${label}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; padding: 24px;
                   border: 1px solid #e0e0e0; border-radius: 8px; background: #fff;">
-        <h2 style="color: #c0392b; margin-bottom: 4px;">BloodBridge 🩸</h2>
+        <h2 style="color: #c0392b; margin-bottom: 4px;">BloodBridge &#129656;</h2>
         <p style="color: #333; font-size: 15px;">
           Hi <strong>${requesterName}</strong>,
         </p>
@@ -65,6 +64,7 @@ async function sendStatusEmail(toEmail, requesterName, request, status) {
         <p style="color:#aaa; font-size:11px;">This is an automated message from BloodBridge. Please do not reply.</p>
       </div>
     `,
+    text: `Hi ${requesterName}, your blood request has been ${label}. Blood group: ${request.bloodGroup}, Units: ${request.units}.`,
   });
 }
 
@@ -75,19 +75,33 @@ exports.createRequest = async (req, res) => {
     const { bloodGroup, units, name, phone, email, address } = req.body;
     const isHospital = req.user && req.user.role === "hospital";
 
-    let requesterName = name;
+    // For a hospital request, the requesterName is the hospital's org name.
+    // For a patient/individual request (no auth OR non-hospital user), it's
+    // the name typed in the form — which is the individual patient's name.
+    let requesterName;
+    let hospitalName = null;
 
     if (isHospital) {
       const hospital = await User.findByPk(req.user.id);
-      requesterName = hospital
-        ? hospital.orgName || hospital.name
-        : "Hospital";
+      requesterName = hospital ? hospital.orgName || hospital.name : "Hospital";
+      hospitalName = requesterName;
+
+      // If the hospital is requesting on behalf of a named patient,
+      // capture that patient name separately so the blood bank can see both.
+      if (name && name.trim()) {
+        requesterName = name.trim();        // show the patient's name on the card
+        hospitalName = hospital ? hospital.orgName || hospital.name : "Hospital";
+      }
+    } else {
+      // Direct individual / patient request — use the name from the form
+      requesterName = name || "Patient";
     }
 
     const request = await Request.create({
       requesterType: isHospital ? "hospital" : "patient",
       requesterId: isHospital ? req.user.id : null,
-      requesterName,
+      requesterName,          // individual patient's name (or hospital name if no patient name given)
+      hospitalName,           // hospital org name — null for direct patient requests
       contactPhone: phone || null,
       contactEmail: email || null,
       address: address || null,

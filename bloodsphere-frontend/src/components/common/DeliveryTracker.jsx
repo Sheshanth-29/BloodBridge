@@ -118,183 +118,199 @@ export default function DeliveryTracker({
   const driven = [bloodbankCoords, vehiclePos];
 
   // ════════════════════════════════════════════════════════════════
-  //  PIP / MINIMIZED MODE
+  //  SINGLE RENDER TREE — minimized toggled via CSS visibility
+  //  so the page background is ALWAYS present (no blank white page)
   // ════════════════════════════════════════════════════════════════
-  if (minimized) {
-    return (
-      <div style={S.pipRoot}>
-        {/* ── Expand notch tab ── */}
-        <button style={S.pipTab} onClick={() => setMinimized(false)}>
-          <span style={S.pipTabArrow}>▲</span>
-          <span style={S.pipTabText}>Expand Tracker</span>
-        </button>
+  return (
+    <>
+      {/* ── Full-page dark background — always rendered so no blank screen ── */}
+      <div style={S.root}>
 
-        {/* ── Mini map ── */}
-        <div style={S.pipMapWrap}>
+        {/* ════════ FULL-SCREEN MAP (hidden when minimized) ════════ */}
+        <div style={{ ...S.mapLayer, display: minimized ? "none" : "block" }}>
           <MapContainer
             center={lerp(bloodbankCoords, patientCoords, 0.5)}
             zoom={13}
             style={{ width: "100%", height: "100%" }}
             zoomControl={false}
-            scrollWheelZoom={false}
-            dragging={false}
-            attributionControl={false}
+            scrollWheelZoom={true}
           >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <Polyline positions={dotted} pathOptions={{ color: "#c0392b", weight: 3, dashArray: "8 6", opacity: 0.35 }} />
-            <Polyline positions={driven} pathOptions={{ color: "#e74c3c", weight: 4, opacity: 1 }} />
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <ZoomControl position="bottomleft" />
+            <Polyline positions={dotted} pathOptions={{ color: "#c0392b", weight: 4, dashArray: "10 8", opacity: 0.35 }} />
+            <Polyline positions={driven} pathOptions={{ color: "#e74c3c", weight: 5, opacity: 1 }} />
             <Marker position={bloodbankCoords} icon={BLOODBANK_ICON} />
             <Marker position={patientCoords}   icon={PATIENT_ICON} />
             {!mockDone && <Marker position={vehiclePos} icon={VEHICLE_ICON} />}
             {mockDone  && <Marker position={patientCoords} icon={DONE_ICON} />}
+            <FitBounds positions={dotted} />
             <InvalidateOnResize trigger={minimized} />
           </MapContainer>
-
-          {/* Click-to-expand overlay on the mini map */}
-          <div style={S.pipMapOverlay} onClick={() => setMinimized(false)} title="Click to expand" />
         </div>
 
-        {/* ── Mini info bar ── */}
-        <div style={S.pipInfoBar}>
-          <span style={{ fontSize: 18 }}>🩸</span>
-          <div style={S.pipInfoText}>
-            <span style={{ color: "#ff6b6b", fontWeight: 700 }}>{requestInfo.bloodGroup}</span>
-            {" · "}{requestInfo.units} unit(s)
-          </div>
-          <div style={S.pipEta}>{eta}</div>
-        </div>
-      </div>
-    );
-  }
+        {/* ════════ TOP STATUS OVERLAY (hidden when minimized) ════════ */}
+        {!minimized && (
+          <div style={S.topOverlay}>
+            <div style={S.statusCard}>
+              {/* ← Back button */}
+              <button
+                style={S.backBtn}
+                onClick={() => navigate(-1)}
+                title="Go back"
+              >
+                ←
+              </button>
 
-  // ════════════════════════════════════════════════════════════════
-  //  FULL-SCREEN MODE
-  // ════════════════════════════════════════════════════════════════
-  return (
-    <div style={S.root}>
-      {/* ════════ FULL-SCREEN MAP ════════ */}
-      <MapContainer
-        center={lerp(bloodbankCoords, patientCoords, 0.5)}
-        zoom={13}
-        style={{ width: "100%", height: "100%" }}
-        zoomControl={false}
-        scrollWheelZoom={true}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {/* Zoom control — positioned bottom-left, above the brand tag */}
-        <ZoomControl position="bottomleft" />
-
-        <Polyline positions={dotted} pathOptions={{ color: "#c0392b", weight: 4, dashArray: "10 8", opacity: 0.35 }} />
-        <Polyline positions={driven} pathOptions={{ color: "#e74c3c", weight: 5, opacity: 1 }} />
-        <Marker position={bloodbankCoords} icon={BLOODBANK_ICON} />
-        <Marker position={patientCoords}   icon={PATIENT_ICON} />
-        {!mockDone && <Marker position={vehiclePos} icon={VEHICLE_ICON} />}
-        {mockDone  && <Marker position={patientCoords} icon={DONE_ICON} />}
-        <FitBounds positions={dotted} />
-        <InvalidateOnResize trigger={minimized} />
-      </MapContainer>
-
-      {/* ════════ TOP STATUS OVERLAY ════════ */}
-      <div style={S.topOverlay}>
-        <div style={S.statusCard}>
-
-          {/* ← Back button */}
-          <button
-            style={S.backBtn}
-            onClick={() => navigate(-1)}
-            title="Go back"
-          >
-            ←
-          </button>
-
-          {/* Status info */}
-          <div style={S.statusLeft}>
-            <span style={S.bloodDrop}>🩸</span>
-            <div>
-              <div style={S.statusTitle}>
-                {mockDone ? "Blood has arrived! 🎉" : "Blood on the way!"}
+              {/* Status info */}
+              <div style={S.statusLeft}>
+                <span style={S.bloodDrop}>🩸</span>
+                <div>
+                  <div style={S.statusTitle}>
+                    {mockDone ? "Blood has arrived! 🎉" : "Blood on the way!"}
+                  </div>
+                  <div style={S.statusSub}>
+                    <strong style={{ color: "#ff6b6b" }}>{requestInfo.bloodGroup}</strong>
+                    {" · "}{requestInfo.units} unit(s){" · "}{requestInfo.requesterName}
+                  </div>
+                </div>
               </div>
-              <div style={S.statusSub}>
-                <strong style={{ color: "#ff6b6b" }}>{requestInfo.bloodGroup}</strong>
-                {" · "}{requestInfo.units} unit(s){" · "}{requestInfo.requesterName}
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {/* ETA badge */}
+                <div style={S.etaBadge}>
+                  <div style={S.etaLabel}>ETA</div>
+                  <div style={S.etaValue}>{eta}</div>
+                </div>
+
+                {/* ⊟ Minimize button */}
+                <button
+                  style={S.minimizeBtn}
+                  onClick={() => setMinimized(true)}
+                  title="Minimize to mini player"
+                >
+                  <span style={{ fontSize: 18, lineHeight: 1 }}>⊟</span>
+                </button>
               </div>
             </div>
-          </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* ETA badge */}
-            <div style={S.etaBadge}>
-              <div style={S.etaLabel}>ETA</div>
-              <div style={S.etaValue}>{eta}</div>
+            {/* Glowing progress bar */}
+            <div style={S.progressTrack}>
+              <div style={{ ...S.progressFill, width: `${progress * 100}%` }} />
+            </div>
+          </div>
+        )}
+
+        {/* ════════ BOTTOM PANEL OVERLAY (hidden when minimized) ════════ */}
+        {!minimized && (
+          <div style={S.bottomOverlay}>
+            {/* Step indicators */}
+            <div style={S.steps}>
+              {steps.map((s, i) => (
+                <div key={i} style={S.step}>
+                  <div style={{
+                    ...S.stepDot,
+                    background: s.done ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(255,255,255,0.1)",
+                    boxShadow:  s.done ? "0 0 14px rgba(231,76,60,0.6)" : "none",
+                  }}>
+                    <span style={{ fontSize: 15 }}>{s.icon}</span>
+                  </div>
+                  <span style={{ ...S.stepLabel, color: s.done ? "#fff" : "rgba(255,255,255,0.3)" }}>
+                    {s.label}
+                  </span>
+                </div>
+              ))}
             </div>
 
-            {/* ⊟ Minimize button */}
+            {/* ── ARRIVED BUTTON ── */}
             <button
-              style={S.minimizeBtn}
-              onClick={() => setMinimized(true)}
-              title="Minimize to mini player"
+              onClick={async () => {
+                if (confirming) return;
+                setConfirming(true);
+                try { await onArrived(); }
+                finally { setConfirming(false); }
+              }}
+              disabled={confirming}
+              style={{ ...S.arrivedBtn, opacity: confirming ? 0.7 : 1, transform: confirming ? "scale(0.97)" : "scale(1)" }}
             >
-              <span style={{ fontSize: 18, lineHeight: 1 }}>⊟</span>
+              {confirming ? (
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={S.spinner} /> Confirming…
+                </span>
+              ) : (
+                <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 22 }}>✅</span>
+                  Blood Arrived — Mark as Received
+                </span>
+              )}
+            </button>
+
+            <div style={S.footerBrand}>🩸 BloodBridge Live Tracking</div>
+          </div>
+        )}
+
+        {/* ════════ MINIMIZED: dark backdrop + info strip ════════ */}
+        {minimized && (
+          <div style={S.minimizedBg}>
+            <p style={S.minimizedHint}>Tracker minimized — tap the widget to expand</p>
+            <button
+              style={S.minimizedBackBtn}
+              onClick={() => navigate(-1)}
+            >
+              ← Back to requests
             </button>
           </div>
-
-        </div>
-
-        {/* Glowing progress bar */}
-        <div style={S.progressTrack}>
-          <div style={{ ...S.progressFill, width: `${progress * 100}%` }} />
-        </div>
+        )}
       </div>
 
-      {/* ════════ BOTTOM PANEL OVERLAY ════════ */}
-      <div style={S.bottomOverlay}>
-        {/* Step indicators */}
-        <div style={S.steps}>
-          {steps.map((s, i) => (
-            <div key={i} style={S.step}>
-              <div style={{
-                ...S.stepDot,
-                background: s.done ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(255,255,255,0.1)",
-                boxShadow:  s.done ? "0 0 14px rgba(231,76,60,0.6)" : "none",
-              }}>
-                <span style={{ fontSize: 15 }}>{s.icon}</span>
-              </div>
-              <span style={{ ...S.stepLabel, color: s.done ? "#fff" : "rgba(255,255,255,0.3)" }}>
-                {s.label}
-              </span>
+      {/* ════════ PIP WIDGET — rendered outside the page so it floats ════════ */}
+      {minimized && (
+        <div style={S.pipRoot}>
+          {/* ── Expand notch tab ── */}
+          <button style={S.pipTab} onClick={() => setMinimized(false)}>
+            <span style={S.pipTabArrow}>▲</span>
+            <span style={S.pipTabText}>Expand Tracker</span>
+          </button>
+
+          {/* ── Mini map ── */}
+          <div style={S.pipMapWrap}>
+            <MapContainer
+              center={lerp(bloodbankCoords, patientCoords, 0.5)}
+              zoom={13}
+              style={{ width: "100%", height: "100%" }}
+              zoomControl={false}
+              scrollWheelZoom={false}
+              dragging={false}
+              attributionControl={false}
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <Polyline positions={dotted} pathOptions={{ color: "#c0392b", weight: 3, dashArray: "8 6", opacity: 0.35 }} />
+              <Polyline positions={driven} pathOptions={{ color: "#e74c3c", weight: 4, opacity: 1 }} />
+              <Marker position={bloodbankCoords} icon={BLOODBANK_ICON} />
+              <Marker position={patientCoords}   icon={PATIENT_ICON} />
+              {!mockDone && <Marker position={vehiclePos} icon={VEHICLE_ICON} />}
+              {mockDone  && <Marker position={patientCoords} icon={DONE_ICON} />}
+              <InvalidateOnResize trigger={minimized} />
+            </MapContainer>
+
+            {/* Click-to-expand overlay */}
+            <div style={S.pipMapOverlay} onClick={() => setMinimized(false)} title="Click to expand" />
+          </div>
+
+          {/* ── Mini info bar ── */}
+          <div style={S.pipInfoBar}>
+            <span style={{ fontSize: 18 }}>🩸</span>
+            <div style={S.pipInfoText}>
+              <span style={{ color: "#ff6b6b", fontWeight: 700 }}>{requestInfo.bloodGroup}</span>
+              {" · "}{requestInfo.units} unit(s)
             </div>
-          ))}
+            <div style={S.pipEta}>{eta}</div>
+          </div>
         </div>
-
-        {/* ── ARRIVED BUTTON ── */}
-        <button
-          onClick={async () => {
-            if (confirming) return;
-            setConfirming(true);
-            try { await onArrived(); }
-            finally { setConfirming(false); }
-          }}
-          disabled={confirming}
-          style={{ ...S.arrivedBtn, opacity: confirming ? 0.7 : 1, transform: confirming ? "scale(0.97)" : "scale(1)" }}
-        >
-          {confirming ? (
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={S.spinner} /> Confirming…
-            </span>
-          ) : (
-            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 22 }}>✅</span>
-              Blood Arrived — Mark as Received
-            </span>
-          )}
-        </button>
-
-        <div style={S.footerBrand}>🩸 BloodBridge Live Tracking</div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
@@ -306,6 +322,45 @@ const S = {
     inset: 0,
     zIndex: 100,
     fontFamily: "'Inter','Segoe UI',sans-serif",
+    background: "#0d0d0d", // always dark — never blank white
+  },
+
+  // ── Map layer (fills root, hidden when minimized) ──────────────────────────
+  mapLayer: {
+    position: "absolute",
+    inset: 0,
+  },
+
+  // ── Minimized background — shown instead of map when PIP is active ─────────
+  minimizedBg: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+    background: "linear-gradient(160deg,#0d0d0d 0%,#1a0505 100%)",
+  },
+  minimizedHint: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 14,
+    fontFamily: "'Inter','Segoe UI',sans-serif",
+    margin: 0,
+    letterSpacing: 0.3,
+  },
+  minimizedBackBtn: {
+    padding: "10px 24px",
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    borderRadius: 12,
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 13,
+    fontWeight: 600,
+    fontFamily: "'Inter','Segoe UI',sans-serif",
+    cursor: "pointer",
+    letterSpacing: 0.3,
+    transition: "background 0.2s",
   },
 
   // ── Back button ───────────────────────────────────────────────────────────

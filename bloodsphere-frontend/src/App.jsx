@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import PageTransition from "./components/common/PageTransition";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 
@@ -23,19 +24,20 @@ export default function App() {
 
           <div className="flex-1">
             <Routes>
-              <Route path="/" element={<Landing />} />
+              <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
 
-              <Route path="/signup" element={<Signup />} />
+              <Route path="/signup" element={<PageTransition><Signup /></PageTransition>} />
+              <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
 
               {/* Open access — no login required */}
-              <Route path="/request-blood" element={<RequestBlood />} />
+              <Route path="/request-blood" element={<PageTransition><RequestBlood /></PageTransition>} />
               <Route path="/track/:id" element={<TrackRequest />} />
 
               <Route
                 path="/donor/dashboard"
                 element={
                   <ProtectedRoute allowedRole="donor">
-                    <DonorDashboard />
+                    <PageTransition><DonorDashboard /></PageTransition>
                   </ProtectedRoute>
                 }
               />
@@ -43,7 +45,7 @@ export default function App() {
                 path="/hospital/dashboard"
                 element={
                   <ProtectedRoute allowedRole="hospital">
-                    <HospitalDashboard />
+                    <PageTransition><HospitalDashboard /></PageTransition>
                   </ProtectedRoute>
                 }
               />
@@ -51,7 +53,7 @@ export default function App() {
                 path="/bloodbank/dashboard"
                 element={
                   <ProtectedRoute allowedRole="bloodbank">
-                    <BloodBankDashboard />
+                    <PageTransition><BloodBankDashboard /></PageTransition>
                   </ProtectedRoute>
                 }
               />

@@ -26,6 +26,12 @@ const Request = sequelize.define("Request", {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  hospitalName: {
+    // Populated only when a hospital raises a request on behalf of a patient.
+    // Null for direct patient/individual requests.
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   bloodGroup: {
     type: DataTypes.STRING,
     allowNull: false,
