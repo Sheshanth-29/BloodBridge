@@ -1,6 +1,7 @@
 const { sendEmail } = require("../config/mailer");
 const User = require("../models/User");
 const Donation = require("../models/Donation");
+const BloodStock = require("../models/BloodStock");
 
 const DONATION_COOLDOWN_DAYS = 90; // standard gap between whole blood donations
 
@@ -60,6 +61,16 @@ exports.confirmDonation = async (req, res) => {
     donor.nextEligibleDate = nextEligible;
     donor.status = "unavailable";
     await donor.save();
+
+    // ── Auto-update blood bank stock ──────────────────────────────────────────
+    // Find the stock row for this blood group, or create it if it's the first
+    // donation of this type. Then increment units by the donated amount.
+    const [stockRow] = await BloodStock.findOrCreate({
+      where: { bloodBankId: req.user.id, bloodGroup: donor.bloodGroup },
+      defaults: { units: 0 },
+    });
+    stockRow.units += (units || 1);
+    await stockRow.save();
 
     // Send the reward email — don't fail the whole request if only the email fails
     try {

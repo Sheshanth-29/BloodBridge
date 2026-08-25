@@ -8,18 +8,6 @@ import {
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
 
-// Stock stays mocked — real inventory sync needs actual blood bank partnerships (future scope)
-const MOCK_STOCK = [
-  { id: 1, bloodGroup: "A+", units: 12, expiryDate: "2026-09-10" },
-  { id: 2, bloodGroup: "A-", units: 3, expiryDate: "2026-08-20" },
-  { id: 3, bloodGroup: "B+", units: 8, expiryDate: "2026-09-25" },
-  { id: 4, bloodGroup: "B-", units: 0, expiryDate: null },
-  { id: 5, bloodGroup: "O+", units: 20, expiryDate: "2026-10-01" },
-  { id: 6, bloodGroup: "O-", units: 2, expiryDate: "2026-08-15" },
-  { id: 7, bloodGroup: "AB+", units: 5, expiryDate: "2026-09-05" },
-  { id: 8, bloodGroup: "AB-", units: 1, expiryDate: "2026-08-18" },
-];
-
 // ── Skeleton row loader ───────────────────────────────────────────────────
 function SkeletonRow() {
   return (
@@ -70,15 +58,23 @@ function Toast({ msg }) {
 
 export default function BloodBankDashboard() {
   const { user } = useAuth();
-  const [stock, setStock] = useState(() => {
-    const saved = localStorage.getItem("bb_mock_stock");
-    return saved ? JSON.parse(saved) : MOCK_STOCK;
-  });
-
-  useEffect(() => {
-    localStorage.setItem("bb_mock_stock", JSON.stringify(stock));
-  }, [stock]);
+  const [stock, setStock] = useState([]);
+  const [loadingStock, setLoadingStock] = useState(true);
   const [addForm, setAddForm] = useState({ bloodGroup: "", units: "", expiryDate: "" });
+  const [addingStock, setAddingStock] = useState(false);
+
+  const fetchStock = async () => {
+    try {
+      const res = await api.get("/stock");
+      setStock(res.data);
+    } catch (err) {
+      console.error("Failed to load stock:", err);
+    } finally {
+      setLoadingStock(false);
+    }
+  };
+
+  useEffect(() => { fetchStock(); }, []);
 
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
@@ -123,16 +119,18 @@ export default function BloodBankDashboard() {
     return days <= 7 && days >= 0;
   };
 
-  const handleAddStock = (e) => {
+  const handleAddStock = async (e) => {
     e.preventDefault();
-    setStock((prev) =>
-      prev.map((s) =>
-        s.bloodGroup === addForm.bloodGroup
-          ? { ...s, units: s.units + Number(addForm.units), expiryDate: addForm.expiryDate }
-          : s
-      )
-    );
-    setAddForm({ bloodGroup: "", units: "", expiryDate: "" });
+    setAddingStock(true);
+    try {
+      await api.post("/stock/add", addForm);
+      setAddForm({ bloodGroup: "", units: "", expiryDate: "" });
+      await fetchStock(); // refresh from server
+    } catch (err) {
+      console.error("Failed to add stock:", err);
+    } finally {
+      setAddingStock(false);
+    }
   };
 
   const handleRequestAction = async (id, status) => {
@@ -171,19 +169,9 @@ export default function BloodBankDashboard() {
     setConfirmMsg("");
     try {
       const res = await api.post("/donations/confirm", { donorId, units: 1 });
-      const { donation, couponCode } = res.data;
-
-      // ── Add donated units to the matching blood group in stock ──────────────
-      setStock((prev) =>
-        prev.map((s) =>
-          s.bloodGroup === donation.bloodGroup
-            ? { ...s, units: s.units + donation.units }
-            : s
-        )
-      );
-
-      setConfirmMsg(`✓ Donation confirmed — ${donation.units} unit(s) of ${donation.bloodGroup} added to stock. Reward coupon ${couponCode} emailed to donor.`);
-      searchDonors(); // refresh donor list — donor drops off (now unavailable)
+      setConfirmMsg(`✓ Donation confirmed — reward coupon ${res.data.couponCode} emailed to donor.`);
+      searchDonors();
+      await fetchStock(); // donation just added to stock — refresh it
     } catch (err) {
       setConfirmMsg(err.response?.data?.message || "Failed to confirm donation");
     } finally {
@@ -221,86 +209,99 @@ export default function BloodBankDashboard() {
             <h2 className="font-semibold text-gray-800">Current stock</h2>
           </div>
 
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3 mb-6">
-            {stock.map((s) => {
-              const empty = s.units === 0;
-              const expiring = isExpiringSoon(s.expiryDate);
-              const low = s.units > 0 && s.units <= 3;
-
-              let cardCls = "rounded-xl border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ";
-              if (empty)         cardCls += "border-gray-200 bg-gray-50";
-              else if (expiring) cardCls += "border-amber-200 bg-amber-50 animate-tile-pulse";
-              else if (low)      cardCls += "border-orange-200 bg-orange-50";
-              else               cardCls += "border-red-100 bg-gradient-to-b from-red-50 to-rose-50";
-
-              return (
-                <div key={s.id} className={cardCls}>
-                  <div className="mb-1">
-                    <Droplet
-                      size={14}
-                      className={`mx-auto ${empty ? "text-gray-300" : expiring ? "text-amber-500" : "text-red-500 fill-red-400"}`}
-                    />
-                  </div>
-                  <div className="font-bold text-gray-800 text-sm">{s.bloodGroup}</div>
-                  <div className={`text-xl font-extrabold ${
-                    empty ? "text-gray-300" : expiring ? "text-amber-600" : "text-red-600"
-                  }`}>{s.units}</div>
-                  <div className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">units</div>
-                  {s.expiryDate && (
-                    <div className={`text-[9px] mt-1 leading-tight ${expiring ? "text-amber-600 font-semibold" : "text-gray-400"}`}>
-                      {expiring && <AlertTriangle size={9} className="inline mr-0.5" />}
-                      {s.expiryDate}
-                    </div>
-                  )}
+          {loadingStock ? (
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-3 mb-6">
+              {BLOOD_GROUPS.map((bg) => (
+                <div key={bg} className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-center animate-pulse">
+                  <div className="h-3 bg-gray-200 rounded mb-2 mx-auto w-6" />
+                  <div className="h-5 bg-gray-200 rounded mx-auto w-8" />
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-3 mb-6">
+              {stock.map((s) => {
+                const empty = s.units === 0;
+                const expiring = isExpiringSoon(s.expiryDate);
+                const low = s.units > 0 && s.units <= 3;
 
-          {/* Add stock form */}
-          <form onSubmit={handleAddStock} className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-5">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Blood group</label>
-              <select
-                required
-                value={addForm.bloodGroup}
-                onChange={(e) => setAddForm({ ...addForm, bloodGroup: e.target.value })}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                let cardCls = "rounded-xl border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ";
+                if (empty)         cardCls += "border-gray-200 bg-gray-50";
+                else if (expiring) cardCls += "border-amber-200 bg-amber-50 animate-tile-pulse";
+                else if (low)      cardCls += "border-orange-200 bg-orange-50";
+                else               cardCls += "border-red-100 bg-gradient-to-b from-red-50 to-rose-50";
+
+                return (
+                  <div key={s.id} className={cardCls}>
+                    <div className="mb-1">
+                      <Droplet
+                        size={14}
+                        className={`mx-auto ${empty ? "text-gray-300" : expiring ? "text-amber-500" : "text-red-500 fill-red-400"}`}
+                      />
+                    </div>
+                    <div className="font-bold text-gray-800 text-sm">{s.bloodGroup}</div>
+                    <div className={`text-xl font-extrabold ${
+                      empty ? "text-gray-300" : expiring ? "text-amber-600" : "text-red-600"
+                    }`}>{s.units}</div>
+                    <div className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">units</div>
+                    {s.expiryDate && (
+                      <div className={`text-[9px] mt-1 leading-tight ${expiring ? "text-amber-600 font-semibold" : "text-gray-400"}`}>
+                        {expiring && <AlertTriangle size={9} className="inline mr-0.5" />}
+                        {s.expiryDate}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!loadingStock && (
+            <form onSubmit={handleAddStock} className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-5">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Blood group</label>
+                <select
+                  required
+                  value={addForm.bloodGroup}
+                  onChange={(e) => setAddForm({ ...addForm, bloodGroup: e.target.value })}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                >
+                  <option value="">Select</option>
+                  {BLOOD_GROUPS.map((bg) => (
+                    <option key={bg} value={bg}>{bg}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Units to add</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={addForm.units}
+                  onChange={(e) => setAddForm({ ...addForm, units: e.target.value })}
+                  className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Expiry date</label>
+                <input
+                  type="date"
+                  required
+                  value={addForm.expiryDate}
+                  onChange={(e) => setAddForm({ ...addForm, expiryDate: e.target.value })}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={addingStock}
+                className="flex items-center gap-2 bg-red-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-red-500 hover:scale-105 transition-all duration-200 shadow-md shadow-red-200 disabled:opacity-60"
               >
-                <option value="">Select</option>
-                {BLOOD_GROUPS.map((bg) => (
-                  <option key={bg} value={bg}>{bg}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Units to add</label>
-              <input
-                type="number"
-                min="1"
-                required
-                value={addForm.units}
-                onChange={(e) => setAddForm({ ...addForm, units: e.target.value })}
-                className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Expiry date</label>
-              <input
-                type="date"
-                required
-                value={addForm.expiryDate}
-                onChange={(e) => setAddForm({ ...addForm, expiryDate: e.target.value })}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-              />
-            </div>
-            <button
-              type="submit"
-              className="flex items-center gap-2 bg-red-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-red-500 hover:scale-105 transition-all duration-200 shadow-md shadow-red-200"
-            >
-              <PlusCircle size={15} /> Add stock
-            </button>
-          </form>
+                <PlusCircle size={15} /> {addingStock ? "Adding…" : "Add stock"}
+              </button>
+            </form>
+          )}
         </div>
 
         {/* ── Available donors ── */}
