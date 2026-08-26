@@ -189,13 +189,21 @@ export default function DonorDashboard() {
             </div>
 
             {/* iOS-style toggle */}
-            <div className="flex flex-col items-center gap-2 pt-1">
+            <div
+              className="flex flex-col items-center gap-2 pt-1 cursor-pointer select-none"
+              onClick={!isEligible || toggling ? undefined : toggleStatus}
+            >
               <ToggleSwitch
                 checked={isAvailable}
-                onChange={toggleStatus}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  toggleStatus();
+                }}
                 disabled={!isEligible || toggling}
               />
-              <span className="text-xs text-gray-400 font-medium">
+              <span className={`text-xs font-semibold tracking-wider transition-colors ${
+                isAvailable ? "text-green-600" : "text-gray-400"
+              }`}>
                 {toggling ? "…" : isAvailable ? "ON" : "OFF"}
               </span>
             </div>
