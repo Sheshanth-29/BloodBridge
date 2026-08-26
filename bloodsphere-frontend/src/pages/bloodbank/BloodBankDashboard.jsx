@@ -160,8 +160,23 @@ export default function BloodBankDashboard() {
     }
   };
 
+  // Silent background poll — doesn't reset the loading spinner so UI doesn't flash
+  const pollDonors = async () => {
+    try {
+      const res = await api.get("/donations/available-donors", {
+        params: searchGroup ? { bloodGroup: searchGroup } : {},
+      });
+      setDonors(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     searchDonors(); // load all available donors on first visit
+    // Auto-refresh every 10 s so donor toggle-off reflects quickly
+    const donorPoll = setInterval(pollDonors, 10000);
+    return () => clearInterval(donorPoll);
   }, []);
 
   const confirmDonation = async (donorId) => {
