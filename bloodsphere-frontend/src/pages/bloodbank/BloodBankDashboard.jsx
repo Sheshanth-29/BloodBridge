@@ -104,7 +104,7 @@ export default function BloodBankDashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchRequests(), searchDonors()]);
+    await Promise.all([fetchRequests(), searchDonors(), fetchStock()]);
     setRefreshing(false);
   };
 
