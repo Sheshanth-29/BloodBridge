@@ -174,8 +174,8 @@ export default function BloodBankDashboard() {
 
   useEffect(() => {
     searchDonors(); // load all available donors on first visit
-    // Auto-refresh every 10 s so donor toggle-off reflects quickly
-    const donorPoll = setInterval(pollDonors, 10000);
+    // Poll every 2 s — reflects donor availability toggle near-instantly
+    const donorPoll = setInterval(pollDonors, 2000);
     return () => clearInterval(donorPoll);
   }, []);
 
