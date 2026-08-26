@@ -10,7 +10,6 @@ import {
 
 const ROLES = [
   { value: "donor", label: "Donor", icon: Droplet, desc: "Donate blood & save lives", color: "from-red-500 to-rose-600", shadow: "shadow-red-200" },
-  { value: "patient", label: "Individual / Patient", icon: User, desc: "No account needed", color: "from-orange-500 to-amber-500", shadow: "shadow-amber-200" },
   { value: "hospital", label: "Hospital", icon: Building2, desc: "Request & manage blood supply", color: "from-blue-500 to-blue-600", shadow: "shadow-blue-200" },
   { value: "bloodbank", label: "Blood Bank", icon: FlaskConical, desc: "Manage inventory & donors", color: "from-purple-500 to-violet-600", shadow: "shadow-purple-200" },
 ];
@@ -102,12 +101,8 @@ export default function Signup() {
   const navigate = useNavigate();
 
   const handleRoleClick = (value) => {
-    if (value === "patient") {
-      navigate("/request-blood");
-    } else {
-      setRole(value);
-      setMode("login"); // always land on login first
-    }
+    setRole(value);
+    setMode("login"); // always land on login first
   };
 
   const isOrg = role === "hospital" || role === "bloodbank";
@@ -155,22 +150,36 @@ export default function Signup() {
           <h2 className="text-3xl font-bold text-gray-800 mb-2">I am a...</h2>
           <p className="text-gray-500">Choose how you'll use BloodBridge</p>
         </div>
+        {/* ── Triangular role arrangement ── */}
         <div className="grid grid-cols-2 gap-4 w-full max-w-md animate-fade-in-up delay-100">
-          {ROLES.map((r) => {
+          {/* Top vertex of triangle: Donor (Centered) */}
+          <div className="col-span-2 flex justify-center">
+            <button
+              onClick={() => handleRoleClick(ROLES[0].value)}
+              className="w-full sm:w-[58%] bg-white border border-gray-100 rounded-2xl py-6 px-4 text-center hover:-translate-y-1 hover:shadow-lg transition-all duration-200 group shadow-sm"
+            >
+              <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br ${ROLES[0].color} rounded-xl mb-3 shadow-md ${ROLES[0].shadow} group-hover:scale-110 transition-transform duration-200`}>
+                <Droplet size={22} className="text-white" />
+              </div>
+              <div className="font-semibold text-gray-800 text-sm">{ROLES[0].label}</div>
+              <span className="block text-xs text-gray-400 mt-1">{ROLES[0].desc}</span>
+            </button>
+          </div>
+
+          {/* Bottom base of triangle: Hospital & Blood Bank (Left & Right) */}
+          {ROLES.slice(1).map((r) => {
             const Icon = r.icon;
             return (
               <button
                 key={r.value}
                 onClick={() => handleRoleClick(r.value)}
-                className="bg-white border border-gray-100 rounded-2xl py-7 px-4 text-center hover:-translate-y-1 hover:shadow-lg transition-all duration-200 group shadow-sm"
+                className="bg-white border border-gray-100 rounded-2xl py-6 px-4 text-center hover:-translate-y-1 hover:shadow-lg transition-all duration-200 group shadow-sm"
               >
                 <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br ${r.color} rounded-xl mb-3 shadow-md ${r.shadow} group-hover:scale-110 transition-transform duration-200`}>
                   <Icon size={22} className="text-white" />
                 </div>
                 <div className="font-semibold text-gray-800 text-sm">{r.label}</div>
-                {r.value === "patient" && (
-                  <span className="block text-xs text-gray-400 mt-1">{r.desc}</span>
-                )}
+                <span className="block text-xs text-gray-400 mt-1">{r.desc}</span>
               </button>
             );
           })}

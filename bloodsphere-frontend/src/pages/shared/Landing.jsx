@@ -123,7 +123,7 @@ export default function Landing() {
             Save Lives.
           </h2>
           <p className="text-gray-200 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-            A real-time platform connecting hospitals, blood banks, donors, and patients efficiently.
+            A real-time platform connecting hospitals, blood banks, and donors efficiently.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link
