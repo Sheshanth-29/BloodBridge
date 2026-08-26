@@ -6,6 +6,7 @@ const User = require("./models/User");
 const Request = require("./models/Request");
 const Donation = require("./models/Donation");
 const BloodStock = require("./models/BloodStock");
+const DonorAlert = require("./models/DonorAlert");
 
 const authRoutes = require("./routes/authRoutes");
 const otpRoutes = require("./routes/otpRoutes");

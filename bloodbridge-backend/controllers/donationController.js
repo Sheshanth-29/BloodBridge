@@ -1,7 +1,9 @@
 const { sendEmail } = require("../config/mailer");
+const { Op } = require("sequelize");
 const User = require("../models/User");
 const Donation = require("../models/Donation");
 const BloodStock = require("../models/BloodStock");
+const DonorAlert = require("../models/DonorAlert");
 
 const DONATION_COOLDOWN_DAYS = 90; // standard gap between whole blood donations
 
@@ -9,7 +11,7 @@ function generateCouponCode() {
   return "BB-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-// Blood bank searches for donors to confirm — optionally filtered by blood group
+// Blood bank searches for donors — includes their current notification/alert status
 exports.getAvailableDonors = async (req, res) => {
   try {
     const { bloodGroup } = req.query;
@@ -20,10 +22,81 @@ exports.getAvailableDonors = async (req, res) => {
       where,
       attributes: ["id", "name", "email", "bloodGroup", "city"],
     });
-    res.json(donors);
+
+    // Find any alerts sent by this blood bank to these donors
+    const donorIds = donors.map((d) => d.id);
+    const alerts = await DonorAlert.findAll({
+      where: {
+        bloodBankId: req.user.id,
+        donorId: { [Op.in]: donorIds },
+      },
+    });
+
+    const alertMap = {};
+    alerts.forEach((a) => {
+      // Pick the most recent alert for each donor
+      if (!alertMap[a.donorId] || new Date(a.updatedAt) > new Date(alertMap[a.donorId].updatedAt)) {
+        alertMap[a.donorId] = a;
+      }
+    });
+
+    const donorsWithAlerts = donors.map((d) => {
+      const alert = alertMap[d.id];
+      return {
+        id: d.id,
+        name: d.name,
+        email: d.email,
+        bloodGroup: d.bloodGroup,
+        city: d.city,
+        alertStatus: alert ? alert.status : null,
+        alertId: alert ? alert.id : null,
+      };
+    });
+
+    res.json(donorsWithAlerts);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch donors" });
+  }
+};
+
+// Blood bank notifies a donor that their blood is urgently needed
+exports.notifyDonor = async (req, res) => {
+  try {
+    const { donorId, message } = req.body;
+    const donor = await User.findByPk(donorId);
+    if (!donor || donor.role !== "donor") {
+      return res.status(404).json({ message: "Donor not found" });
+    }
+
+    const bloodBank = await User.findByPk(req.user.id);
+    const bloodBankName = bloodBank ? bloodBank.orgName || bloodBank.name : "Blood Bank";
+
+    let alert = await DonorAlert.findOne({
+      where: { donorId: donor.id, bloodBankId: req.user.id },
+    });
+
+    if (alert) {
+      alert.status = "pending";
+      alert.bloodBankName = bloodBankName;
+      alert.bloodGroup = donor.bloodGroup;
+      alert.message = message || `Urgent: ${bloodBankName} needs ${donor.bloodGroup} blood right now!`;
+      await alert.save();
+    } else {
+      alert = await DonorAlert.create({
+        donorId: donor.id,
+        bloodBankId: req.user.id,
+        bloodBankName,
+        bloodGroup: donor.bloodGroup,
+        message: message || `Urgent: ${bloodBankName} needs ${donor.bloodGroup} blood right now!`,
+        status: "pending",
+      });
+    }
+
+    res.json({ message: "Donor notified successfully", alert });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to notify donor" });
   }
 };
 
@@ -61,6 +134,12 @@ exports.confirmDonation = async (req, res) => {
     donor.nextEligibleDate = nextEligible;
     donor.status = "unavailable";
     await donor.save();
+
+    // Mark any active DonorAlert as completed
+    await DonorAlert.update(
+      { status: "completed" },
+      { where: { donorId: donor.id, bloodBankId: req.user.id } }
+    );
 
     // ── Auto-update blood bank stock ──────────────────────────────────────────
     // Find the stock row for this blood group, or create it if it's the first

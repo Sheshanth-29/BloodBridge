@@ -3,7 +3,8 @@ import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
 import {
   Droplet, User, Building2, Search, CheckCircle2,
-  PlusCircle, AlertTriangle, Package, Clock, XCircle, RefreshCw
+  PlusCircle, AlertTriangle, Package, Clock, XCircle, RefreshCw,
+  Bell, Check
 } from "lucide-react";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
@@ -178,6 +179,22 @@ export default function BloodBankDashboard() {
     const donorPoll = setInterval(pollDonors, 2000);
     return () => clearInterval(donorPoll);
   }, []);
+
+  const [notifyingId, setNotifyingId] = useState(null);
+
+  const handleNotifyDonor = async (donorId) => {
+    setNotifyingId(donorId);
+    setConfirmMsg("");
+    try {
+      await api.post("/donations/notify", { donorId });
+      setConfirmMsg("✓ Notification sent to donor! Waiting for donor to accept.");
+      await pollDonors();
+    } catch (err) {
+      setConfirmMsg(err.response?.data?.message || "Failed to notify donor");
+    } finally {
+      setNotifyingId(null);
+    }
+  };
 
   const confirmDonation = async (donorId) => {
     setConfirmingId(donorId);
@@ -358,33 +375,92 @@ export default function BloodBankDashboard() {
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {donors.map((d) => (
-                <div key={d.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                      <User size={15} className="text-red-500" />
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-700 text-sm">{d.name}</span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="bg-red-100 text-red-600 text-xs font-bold px-1.5 py-0.5 rounded">{d.bloodGroup}</span>
-                        <span className="text-gray-400 text-xs">{d.city}</span>
+              {donors.map((d) => {
+                const isAccepted = d.alertStatus === "accepted";
+                const isPending = d.alertStatus === "pending";
+                const isDeclined = d.alertStatus === "declined";
+
+                return (
+                  <div key={d.id} className="py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                        isAccepted ? "bg-emerald-100 text-emerald-600 ring-2 ring-emerald-300" : "bg-red-100 text-red-500"
+                      }`}>
+                        <User size={15} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-800 text-sm">{d.name}</span>
+                          {isAccepted && (
+                            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <CheckCircle2 size={10} /> Accepted
+                            </span>
+                          )}
+                          {isPending && (
+                            <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Clock size={10} /> Notified
+                            </span>
+                          )}
+                          {isDeclined && (
+                            <span className="bg-gray-100 text-gray-500 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                              Declined
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="bg-red-100 text-red-600 text-xs font-bold px-1.5 py-0.5 rounded">{d.bloodGroup}</span>
+                          <span className="text-gray-400 text-xs">{d.city}</span>
+                        </div>
                       </div>
                     </div>
+
+                    <div className="flex items-center gap-2">
+                      {isAccepted ? (
+                        /* Donor has accepted -> Show green "Confirm Donation" button */
+                        <button
+                          onClick={() => confirmDonation(d.id)}
+                          disabled={confirmingId === d.id}
+                          className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-emerald-200"
+                        >
+                          {confirmingId === d.id ? (
+                            <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" /> Confirming...</>
+                          ) : (
+                            <><CheckCircle2 size={14} /> Confirm Donation</>
+                          )}
+                        </button>
+                      ) : isPending ? (
+                        /* Awaiting response from donor */
+                        <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3.5 py-2 rounded-xl font-medium">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                          Awaiting Donor Response...
+                        </div>
+                      ) : isDeclined ? (
+                        /* Declined by donor -> Option to notify again */
+                        <button
+                          onClick={() => handleNotifyDonor(d.id)}
+                          disabled={notifyingId === d.id}
+                          className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                        >
+                          <Bell size={13} /> Notify Again
+                        </button>
+                      ) : (
+                        /* Initial state: Notify Donor */
+                        <button
+                          onClick={() => handleNotifyDonor(d.id)}
+                          disabled={notifyingId === d.id}
+                          className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 px-4 py-2 rounded-xl text-xs font-semibold hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-60 shadow-sm shadow-blue-100"
+                        >
+                          {notifyingId === d.id ? (
+                            <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" /> Sending...</>
+                          ) : (
+                            <><Bell size={13} /> Notify Donor</>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    onClick={() => confirmDonation(d.id)}
-                    disabled={confirmingId === d.id}
-                    className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-1.5 rounded-xl text-xs font-semibold hover:bg-red-500 hover:scale-105 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm shadow-red-200"
-                  >
-                    {confirmingId === d.id ? (
-                      <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" /> Confirming...</>
-                    ) : (
-                      <><CheckCircle2 size={13} /> Confirm Donation</>
-                    )}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

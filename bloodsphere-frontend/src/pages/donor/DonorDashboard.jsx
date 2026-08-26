@@ -4,6 +4,7 @@ import api from "../../api/axios";
 import {
   Droplet, Heart, Calendar, Building2, MapPin,
   CheckCircle2, AlertCircle, Loader2, ServerCrash, RefreshCw,
+  BellRing, Check, X, Sparkles,
 } from "lucide-react";
 
 // ── iOS-style toggle switch ────────────────────────────────────────────────
@@ -51,11 +52,24 @@ export default function DonorDashboard() {
   const [toggling, setToggling] = useState(false); // prevents double-tap
   const [toggleError, setToggleError] = useState("");
 
+  // ── Active incoming alerts from Blood Banks ──
+  const [alerts, setAlerts] = useState([]);
+  const [respondingId, setRespondingId] = useState(null);
+
   // ── Real-time donation history ──
   const [donations, setDonations] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await api.get("/donors/alerts");
+      setAlerts(res.data);
+    } catch {
+      // silently ignore
+    }
+  }, []);
 
   const fetchDonations = useCallback(async (silent = false) => {
     if (!silent) setLoadingHistory(true);
@@ -75,16 +89,17 @@ export default function DonorDashboard() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      // Re-fetch both donation history AND the donor's real status from the DB
+      // Re-fetch donation history, alerts, and profile status
       const [, profileRes] = await Promise.all([
         fetchDonations(true),
         api.get("/donors/me"),
+        fetchAlerts(),
       ]);
       const realStatus = profileRes.data.status === "available";
       setIsAvailable(realStatus);
-      updateUser({ status: profileRes.data.status }); // keep AuthContext in sync
+      updateUser({ status: profileRes.data.status });
     } catch {
-      // silently ignore — UI won't break
+      // silently ignore
     } finally {
       setRefreshing(false);
     }
@@ -92,7 +107,11 @@ export default function DonorDashboard() {
 
   useEffect(() => {
     fetchDonations();
-  }, [fetchDonations]);
+    fetchAlerts();
+    // Poll alerts every 2.5s for real-time notification
+    const alertPoll = setInterval(fetchAlerts, 2500);
+    return () => clearInterval(alertPoll);
+  }, [fetchDonations, fetchAlerts]);
 
   // Eligibility is driven from the real user record in AuthContext
   const nextEligibleDate = user?.nextEligibleDate
@@ -103,17 +122,14 @@ export default function DonorDashboard() {
   const toggleStatus = async () => {
     if (toggling) return;
     const newStatus = isAvailable ? "unavailable" : "available";
-    // Optimistic update — flip immediately so UI feels instant
     setIsAvailable((prev) => !prev);
     setToggleError("");
     setToggling(true);
     try {
       const res = await api.patch("/donors/me/status", { status: newStatus });
-      // Sync the real value from the server back into AuthContext + localStorage
       updateUser({ status: res.data.status });
       setIsAvailable(res.data.status === "available");
     } catch (err) {
-      // Roll back optimistic update on failure
       setIsAvailable((prev) => !prev);
       setToggleError(
         err?.response?.data?.message || "Failed to update availability."
@@ -123,9 +139,91 @@ export default function DonorDashboard() {
     }
   };
 
+  const handleAlertResponse = async (alertId, response) => {
+    setRespondingId(alertId);
+    try {
+      await api.patch(`/donors/alerts/${alertId}/respond`, { response });
+      await fetchAlerts();
+    } catch (err) {
+      console.error("Failed to respond to alert:", err);
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
+  const pendingAlert = alerts.find((a) => a.status === "pending");
+  const acceptedAlert = alerts.find((a) => a.status === "accepted");
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-rose-50/50 to-white">
       <div className="max-w-3xl mx-auto px-6 py-10">
+
+        {/* ── Active Urgent Blood Request Alert Banner (Pending) ── */}
+        {pendingAlert && (
+          <div className="bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white rounded-2xl p-6 mb-6 shadow-xl shadow-red-300 border border-red-400/30 animate-fade-in-up">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 shadow-inner">
+                <BellRing size={24} className="text-white animate-bounce" />
+              </div>
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className="bg-white/25 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    🚨 Urgent Blood Needed
+                  </span>
+                  <span className="bg-red-900/40 text-red-100 text-xs font-bold px-2 py-0.5 rounded-md">
+                    {pendingAlert.bloodGroup}
+                  </span>
+                </div>
+                <h3 className="text-lg font-extrabold text-white mb-1">
+                  {pendingAlert.bloodBankName} needs your blood right now!
+                </h3>
+                <p className="text-red-100 text-sm mb-4 leading-relaxed">
+                  {pendingAlert.message || `An urgent patient request at ${pendingAlert.bloodBankName} matches your blood type. Can you donate today?`}
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => handleAlertResponse(pendingAlert.id, "accepted")}
+                    disabled={respondingId === pendingAlert.id}
+                    className="flex items-center gap-2 bg-white text-red-700 hover:bg-red-50 font-bold px-5 py-2.5 rounded-xl text-sm transition-all duration-200 shadow-md hover:scale-105 active:scale-95 disabled:opacity-60"
+                  >
+                    <Check size={16} className="stroke-[3]" />
+                    {respondingId === pendingAlert.id ? "Accepting..." : "Accept & Donate"}
+                  </button>
+                  <button
+                    onClick={() => handleAlertResponse(pendingAlert.id, "declined")}
+                    disabled={respondingId === pendingAlert.id}
+                    className="flex items-center gap-1.5 bg-black/20 hover:bg-black/30 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-all duration-200 disabled:opacity-60"
+                  >
+                    <X size={15} />
+                    Decline
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Accepted Alert Notice Banner ── */}
+        {!pendingAlert && acceptedAlert && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6 shadow-sm flex items-start justify-between gap-3 animate-fade-in-up">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 mt-0.5">
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-emerald-900 text-sm">You Accepted the Donation Request!</h4>
+                  <span className="inline-flex items-center gap-1 bg-emerald-200/60 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                    <Sparkles size={10} /> Ready to Donate
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                  Thank you! Please visit <strong className="font-semibold">{acceptedAlert.bloodBankName}</strong>. Once you donate, the blood bank will click <em>Confirm Donation</em>, and your reward coupon code will be emailed to you!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Welcome header ── */}
         <div className="mb-8 animate-fade-in-up flex items-start justify-between gap-4">
