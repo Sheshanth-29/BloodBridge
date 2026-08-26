@@ -64,18 +64,24 @@ export default function BloodBankDashboard() {
   const [addForm, setAddForm] = useState({ bloodGroup: "", units: "", expiryDate: "" });
   const [addingStock, setAddingStock] = useState(false);
 
-  const fetchStock = async () => {
+  const fetchStock = async (silent = false) => {
+    if (!silent) setLoadingStock(true);
     try {
       const res = await api.get("/stock");
       setStock(res.data);
     } catch (err) {
       console.error("Failed to load stock:", err);
     } finally {
-      setLoadingStock(false);
+      if (!silent) setLoadingStock(false);
     }
   };
 
-  useEffect(() => { fetchStock(); }, []);
+  useEffect(() => {
+    fetchStock();
+    // Auto-poll stock every 3s so multi-device updates appear in real-time
+    const stockPoll = setInterval(() => fetchStock(true), 3000);
+    return () => clearInterval(stockPoll);
+  }, []);
 
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
