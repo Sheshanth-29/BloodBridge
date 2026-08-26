@@ -75,4 +75,4 @@ exports.login = async (req, res) => {
     console.error(err);
     res.status(500).json({ message: "Login failed. Please try again." });
   }
-};
+};
