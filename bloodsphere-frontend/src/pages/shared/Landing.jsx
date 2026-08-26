@@ -132,12 +132,6 @@ export default function Landing() {
             >
               Get Started <ArrowRight size={18} />
             </Link>
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/30 text-white px-7 py-3.5 rounded-xl font-semibold text-base hover:scale-105 transition-all duration-200"
-            >
-              Login
-            </Link>
           </div>
         </div>
 
