@@ -134,13 +134,19 @@ export default function BloodBankDashboard() {
     }
   };
 
+  const [requestActionError, setRequestActionError] = useState("");
+
   const handleRequestAction = async (id, status) => {
     setActingId(id);
+    setRequestActionError("");
     try {
       await api.patch(`/requests/${id}`, { status });
       fetchRequests();
+      await fetchStock(); // refresh stock immediately when units are lent/approved
     } catch (err) {
-      console.error(err);
+      setRequestActionError(
+        err.response?.data?.message || "Failed to update request status"
+      );
     } finally {
       setActingId(null);
     }
@@ -258,7 +264,7 @@ export default function BloodBankDashboard() {
                 const low = s.units > 0 && s.units <= 3;
 
                 let cardCls = "rounded-xl border p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ";
-                if (empty)         cardCls += "border-gray-200 bg-gray-50";
+                if (empty)         cardCls += "border-red-200 bg-red-50/60";
                 else if (expiring) cardCls += "border-amber-200 bg-amber-50 animate-tile-pulse";
                 else if (low)      cardCls += "border-orange-200 bg-orange-50";
                 else               cardCls += "border-red-100 bg-gradient-to-b from-red-50 to-rose-50";
@@ -268,20 +274,25 @@ export default function BloodBankDashboard() {
                     <div className="mb-1">
                       <Droplet
                         size={14}
-                        className={`mx-auto ${empty ? "text-gray-300" : expiring ? "text-amber-500" : "text-red-500 fill-red-400"}`}
+                        className={`mx-auto ${empty ? "text-red-400" : expiring ? "text-amber-500" : "text-red-500 fill-red-400"}`}
                       />
                     </div>
                     <div className="font-bold text-gray-800 text-sm">{s.bloodGroup}</div>
                     <div className={`text-xl font-extrabold ${
-                      empty ? "text-gray-300" : expiring ? "text-amber-600" : "text-red-600"
+                      empty ? "text-red-600" : expiring ? "text-amber-600" : "text-red-600"
                     }`}>{s.units}</div>
                     <div className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">units</div>
-                    {s.expiryDate && (
+                    {empty ? (
+                      <div className="text-[8px] mt-1.5 font-bold text-red-600 bg-red-100/90 px-1 py-0.5 rounded border border-red-200 leading-tight">
+                        <AlertTriangle size={8} className="inline mr-0.5 -mt-0.5 text-red-500" />
+                        Insufficient stock
+                      </div>
+                    ) : s.expiryDate ? (
                       <div className={`text-[9px] mt-1 leading-tight ${expiring ? "text-amber-600 font-semibold" : "text-gray-400"}`}>
                         {expiring && <AlertTriangle size={9} className="inline mr-0.5" />}
                         {s.expiryDate}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })}
@@ -471,6 +482,8 @@ export default function BloodBankDashboard() {
             <Clock size={17} className="text-red-500" />
             <h2 className="font-semibold text-gray-800">Incoming requests</h2>
           </div>
+
+          <Toast msg={requestActionError} />
 
           {loadingRequests ? (
             <div className="divide-y divide-gray-50">

@@ -1,6 +1,7 @@
 const { sendEmail } = require("../config/mailer");
 const User = require("../models/User");
 const Request = require("../models/Request");
+const BloodStock = require("../models/BloodStock");
 
 // ─── Public: fetch a single request by id (used by patient tracking page) ───
 exports.getRequestById = async (req, res) => {
@@ -151,7 +152,7 @@ exports.getMyRequests = async (req, res) => {
 };
 
 
-// Blood bank approves/declines request — also sends email notification
+// Blood bank approves/declines request — also sends email notification & deducts stock
 exports.updateRequestStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -164,6 +165,24 @@ exports.updateRequestStatus = async (req, res) => {
     const request = await Request.findByPk(id);
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
+    }
+
+    // ── If approving a request, verify and deduct blood stock ─────────────────
+    if (status === "Approved" && request.status !== "Approved") {
+      const [stockRow] = await BloodStock.findOrCreate({
+        where: { bloodBankId: req.user.id, bloodGroup: request.bloodGroup },
+        defaults: { units: 0 },
+      });
+
+      if (stockRow.units < request.units) {
+        return res.status(400).json({
+          message: `Insufficient stock of ${request.bloodGroup}! Available: ${stockRow.units} unit(s), but ${request.units} unit(s) requested.`,
+        });
+      }
+
+      // Deduct lent units from stock
+      stockRow.units -= request.units;
+      await stockRow.save();
     }
 
     request.status = status;
