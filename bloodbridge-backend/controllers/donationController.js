@@ -141,14 +141,17 @@ exports.confirmDonation = async (req, res) => {
       { where: { donorId: donor.id, bloodBankId: req.user.id } }
     );
 
-    // ── Auto-update blood bank stock ──────────────────────────────────────────
-    // Find the stock row for this blood group, or create it if it's the first
-    // donation of this type. Then increment units by the donated amount.
+    // ── Auto-update blood bank stock with 1-month expiry date ────────────────
+    const bloodExpiry = new Date(today);
+    bloodExpiry.setMonth(bloodExpiry.getMonth() + 1);
+    const expiryDateStr = bloodExpiry.toISOString().split("T")[0];
+
     const [stockRow] = await BloodStock.findOrCreate({
       where: { bloodBankId: req.user.id, bloodGroup: donor.bloodGroup },
-      defaults: { units: 0 },
+      defaults: { units: 0, expiryDate: expiryDateStr },
     });
     stockRow.units += (units || 1);
+    stockRow.expiryDate = expiryDateStr;
     await stockRow.save();
 
     // Send the reward email — don't fail the whole request if only the email fails
