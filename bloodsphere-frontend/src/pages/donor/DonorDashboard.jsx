@@ -42,12 +42,14 @@ function StatusBadge({ available }) {
 }
 
 export default function DonorDashboard() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   // ── Local availability state (starts from the user record) ──
   const [isAvailable, setIsAvailable] = useState(
     user?.status === "available"
   );
+  const [toggling, setToggling] = useState(false); // prevents double-tap
+  const [toggleError, setToggleError] = useState("");
 
   // ── Real-time donation history ──
   const [donations, setDonations] = useState([]);
@@ -72,8 +74,20 @@ export default function DonorDashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchDonations(true);
-    setRefreshing(false);
+    try {
+      // Re-fetch both donation history AND the donor's real status from the DB
+      const [, profileRes] = await Promise.all([
+        fetchDonations(true),
+        api.get("/donors/me"),
+      ]);
+      const realStatus = profileRes.data.status === "available";
+      setIsAvailable(realStatus);
+      updateUser({ status: profileRes.data.status }); // keep AuthContext in sync
+    } catch {
+      // silently ignore — UI won't break
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -86,9 +100,27 @@ export default function DonorDashboard() {
     : null;
   const isEligible = !nextEligibleDate || new Date() >= nextEligibleDate;
 
-  const toggleStatus = () => {
-    // Optimistic UI — in a real app also PATCH /api/donors/me/status
+  const toggleStatus = async () => {
+    if (toggling) return;
+    const newStatus = isAvailable ? "unavailable" : "available";
+    // Optimistic update — flip immediately so UI feels instant
     setIsAvailable((prev) => !prev);
+    setToggleError("");
+    setToggling(true);
+    try {
+      const res = await api.patch("/donors/me/status", { status: newStatus });
+      // Sync the real value from the server back into AuthContext + localStorage
+      updateUser({ status: res.data.status });
+      setIsAvailable(res.data.status === "available");
+    } catch (err) {
+      // Roll back optimistic update on failure
+      setIsAvailable((prev) => !prev);
+      setToggleError(
+        err?.response?.data?.message || "Failed to update availability."
+      );
+    } finally {
+      setToggling(false);
+    }
   };
 
   return (
@@ -161,13 +193,19 @@ export default function DonorDashboard() {
               <ToggleSwitch
                 checked={isAvailable}
                 onChange={toggleStatus}
-                disabled={!isEligible}
+                disabled={!isEligible || toggling}
               />
               <span className="text-xs text-gray-400 font-medium">
-                {isAvailable ? "ON" : "OFF"}
+                {toggling ? "…" : isAvailable ? "ON" : "OFF"}
               </span>
             </div>
           </div>
+          {toggleError && (
+            <div className="flex items-center gap-1.5 mt-3 bg-red-50 border border-red-100 text-red-600 text-xs font-medium px-3 py-1.5 rounded-lg">
+              <AlertCircle size={12} />
+              {toggleError}
+            </div>
+          )}
         </div>
 
         {/* ── Donation history — real-time timeline ── */}

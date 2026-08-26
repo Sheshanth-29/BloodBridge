@@ -24,8 +24,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Merge partial updates into the current user (e.g. after toggling donor status)
+  const updateUser = (partial) => {
+    setUser((prev) => {
+      const updated = { ...prev, ...partial };
+      localStorage.setItem("bloodbridge_user", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
