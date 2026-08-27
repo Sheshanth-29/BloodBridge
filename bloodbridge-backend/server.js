@@ -14,6 +14,7 @@ const requestRoutes = require("./routes/requestRoutes");
 const donationRoutes = require("./routes/donationRoutes");
 const donorRoutes = require("./routes/donorRoutes");
 const stockRoutes = require("./routes/stockRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use("/api/requests", requestRoutes);
 app.use("/api/donations", donationRoutes);
 app.use("/api/donors", donorRoutes);
 app.use("/api/stock", stockRoutes);
+app.use("/api/admin", adminRoutes);
 
 const PORT = process.env.PORT || 5000;
 

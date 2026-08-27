@@ -29,3 +29,14 @@ exports.optionalAuth = (req, res, next) => {
   }
   next();
 };
+
+// Strict check for Chief Administrator access
+exports.requireAdmin = (req, res, next) => {
+  exports.requireAuth(req, res, () => {
+    if (req.user && req.user.role === "admin") {
+      next();
+    } else {
+      res.status(403).json({ message: "Access denied. Chief Administrator privileges required." });
+    }
+  });
+};

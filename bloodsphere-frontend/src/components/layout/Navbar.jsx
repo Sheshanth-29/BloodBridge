@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { Droplet, ArrowLeft, Home, LogOut, Bell, Building2, Heart, User } from "lucide-react";
+import { Droplet, ArrowLeft, Home, LogOut, Bell, Building2, Heart, User, ShieldCheck } from "lucide-react";
 
 const roleIcon = (role) => {
   if (role === "donor") return <Droplet size={14} className="inline mr-1" />;
   if (role === "hospital") return <Building2 size={14} className="inline mr-1" />;
   if (role === "bloodbank") return <Heart size={14} className="inline mr-1" />;
+  if (role === "admin") return <ShieldCheck size={14} className="inline mr-1 text-amber-300" />;
   return <User size={14} className="inline mr-1" />;
 };
 

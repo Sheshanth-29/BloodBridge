@@ -14,6 +14,7 @@ import TrackRequest from "./pages/patient/TrackRequest";
 import DonorDashboard from "./pages/donor/DonorDashboard";
 import HospitalDashboard from "./pages/hospital/HospitalDashboard";
 import BloodBankDashboard from "./pages/bloodbank/BloodBankDashboard";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 export default function App() {
   return (
@@ -54,6 +55,14 @@ export default function App() {
                 element={
                   <ProtectedRoute allowedRole="bloodbank">
                     <PageTransition><BloodBankDashboard /></PageTransition>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <ProtectedRoute allowedRole="admin">
+                    <PageTransition><AdminDashboard /></PageTransition>
                   </ProtectedRoute>
                 }
               />
